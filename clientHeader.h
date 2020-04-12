@@ -22,7 +22,4 @@
 #include<sys/socket.h>
 #include<arpa/inet.h>
 
-extern int port;
-extern int ip;
-
 #endif
