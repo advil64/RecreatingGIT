@@ -20,12 +20,71 @@ int configure(char * myIp, char * myPort){
     return 0;
   }
   //write IP/Host to the .configure file
-  write(confFD, "IP/Hostname: ", 13*sizeof(char));
   write(confFD, myIp, strlen(myIp)*sizeof(char));
   write(confFD, "\n", sizeof(char));
   //write the port number to the configure file
-  write(confFD, "Port: ", 6*sizeof(char));
   write(confFD, myPort, strlen(myPort)*sizeof(char));
+  //close the file descriptor
+  close(confFD);
   //return 0 is it was successfull
   return 0;
+}
+
+/*
+The checkout command will fail if the project name doesn’t exist on the server, the client can't communicate
+with the server, if the project name already exists on the client side or if configure was not run on the client side.
+If it does run it will request the entire project from the server, which will send over the current version of the
+project .Manifest as well as all the files that are listed in it. The client will be responsible for receiving the
+project, creating any subdirectories under the project and putting all files in to place as well as saving the
+.Manifest.
+Note: The project is stored in the working directory once it recieves all the files from the server
+*/
+
+int checkout(char * projName){
+  //call the read configure file to find the IP and port
+  if(readConf()){
+    //if it failed print the error
+    printf("Please configure your client with a port and IP first.\n");
+    //return unsuccessfull
+    return 1;
+  }
+  //check if the given project already exists
+  
+  return 0;
+}
+
+/* helper method to read the configure file */
+int readConf(){
+  //first check to see if .configure has been created
+  int confFD = open(".configure", O_RDONLY);
+  //if confd is negative, return unsuccessfull
+  if(confFD < 0){
+    //configure does not exist, return an error
+    return 1;
+  }
+  //the buffer to store the file in
+  char * buffer;
+  //call the readfile method
+  readFile(confFD, &buffer);
+  //in the buffer loop through and gather the needed information
+  sscanf(buffer, "%s\n%d", IP, &port);
+  //print the IP address and port number to the console
+  printf("IP/Hostname: %s\n", IP);
+  printf("Port #: %d\n", port);
+  //return success
+  return 0;
+}
+
+/*helper method to read files*/
+void readFile(int fd, char ** buff){
+  //if confFD is positive, configure has been created, extract the IP and Port
+  int buffSize = lseek(fd, (size_t)0, SEEK_END);
+  //store the contents of the config file
+  *buff = malloc((buffSize+1)*sizeof(char));
+  //set the offset back to the start
+  lseek(fd, (size_t)0, SEEK_SET);
+  //memset the buffer to null terminators
+  memset(*buff, '\0', buffSize+1);
+  //read the buffsize amount of bytes into the buffer
+  read(fd, *buff, buffSize);
 }

@@ -1,7 +1,7 @@
 #ifndef _CLIENTHEADER_H_
 #define _CLIENTHEADER_H_
 
-
+//libraries to import
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -22,4 +22,13 @@
 #include<sys/socket.h>
 #include<arpa/inet.h>
 
+//global variables
+int port;
+char IP[100];
+
+//functions
+int configure(char *, char *);
+int checkout(char *);
+int readConf();
+void readFile(int, char **);
 #endif
