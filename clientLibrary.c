@@ -49,8 +49,36 @@ int checkout(char * projName){
     return 1;
   }
   //check if the given project already exists
-  
+  DIR *myDirec = opendir(projName);
+  if(myDirec){
+    //the directory/project exists and we need to print an error
+    printf("The project you want to check out already exists.\n");
+    //free the pointer
+    free(myDirec);
+    //return unsuccessful
+    return 1;
+  }
+  //we're good to go on the client side, we need to communicate with the server now
+  printf("Attempting to connect to server...");
+  //TODO: write code that actually connects to the server
   return 0;
+}
+
+/*
+The update command will fail if the project name doesn’t exist on the server and if the client can not contact the
+server. The update command is rather complex since it is where lots of things are compared in order to maintain
+proper versioning. If update doesn't work correctly, almost nothing else will.
+*/
+
+int update(char * projName){
+  //call the read configure file to find the IP and port
+  if(readConf()){
+    //if it failed print the error
+    printf("Please configure your client with a port and IP first.\n");
+    //return unsuccessfull
+    return 1;
+  }
+  
 }
 
 /* helper method to read the configure file */
@@ -71,6 +99,9 @@ int readConf(){
   //print the IP address and port number to the console
   printf("IP/Hostname: %s\n", IP);
   printf("Port #: %d\n", port);
+  //free the buffer created and close the fd
+  free(buffer);
+  close(confFD);
   //return success
   return 0;
 }
