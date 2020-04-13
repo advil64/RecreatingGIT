@@ -30,5 +30,5 @@ char IP[100];
 int configure(char *, char *);
 int checkout(char *);
 int readConf();
-void readFile(int, char **);
+int readFile(int, char **);
 #endif
