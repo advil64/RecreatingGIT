@@ -125,6 +125,7 @@ int update(char * projName){
   sscanf(servMan, "%d\n", &servProjVer);
   //.Update file tells us what to upgrade
   int updateFD = open(".Update", O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  int conflictFD = open(".Update", O_APPEND | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //if they are the same, then update is done
   if(clientProjVer == servProjVer){
     //finished update
@@ -147,24 +148,59 @@ int update(char * projName){
     while(servCurr != NULL || clienCurr != NULL){
       //find the corresponding entry in the client
       if(strcmp(servCurr ->filePath, clienCurr ->filePath) == 0){
+        //to check for conflicts, first calculate the sha1 of the file in the client
+        SHA1(clientMan, strlen(clientMan), hash);
+        //then check if the client and server hashes are the same
+        if(strcmp(clienCurr ->fileHash, servCurr ->fileHash) != 0){
+          //check if the client hash is also up to date
+          if(strcmp(hash, clienCurr -> fileHash) == 0){
+            //we need to modify the file on the client side
+            write(updateFD, "M ", 2);
+            write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
+            write(updateFD, " ", 1);
+            write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
+            write(updateFD, "\n", 1);
+            //print the modification to terminal
+            printf("M %s", servCurr -> filePath);
+          } else{
+            //we have a conflict
+            write(conflictFD, "C ", 2);
+            write(conflictFD, servCurr -> filePath, strlen(servCurr -> filePath));
+            write(conflictFD, " ", 1);
+            write(conflictFD, hash, strlen(hash));
+            write(conflictFD, "\n", 1);
+            //print a warning to the terminal
+            printf("Conflicts were found and must be resolved before the project can be updated.\n");
+          }
+          //we need to download the modified 
+        }
         //we increment both the currs
         servCurr = servCurr -> next;
         clienCurr = clienCurr -> next;
-      } else if(strcmp(servCurr ->filePath, clienCurr ->filePath) < 0){
-
-      } else {
-        //check if we are out of client entries
-        if(clienCurr -> next == NULL){
-          //this seems to be a new file write to the update fd
-          write(updateFD, "A ", 2);
-          write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
-          write(updateFD, " ", 1);
-          write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
-          //print the appendage to terminal
-          printf("A %s", servCurr -> filePath);
-          //break outta there
-          break;
-        }
+      } else if(strcmp(clienCurr ->filePath, servCurr ->filePath) > 0){
+        //server has a file that client does not have, we need to add the file to client
+        //this seems to be a new file write to the update fd
+        write(updateFD, "A ", 2);
+        write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
+        write(updateFD, " ", 1);
+        write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
+        write(updateFD, "\n", 1);
+        //print the appendage to terminal
+        printf("A %s", servCurr -> filePath);
+        //we increment only the client pointer
+        servCurr = servCurr -> next;
+      } else if(strcmp(servCurr ->filePath, clienCurr ->filePath) > 0){
+        //client has a file that server does not have, we need to delete the file from client
+        //this seems to be a new file write to the update fd
+        write(updateFD, "D ", 2);
+        write(updateFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
+        write(updateFD, " ", 1);
+        write(updateFD, clienCurr->fileHash, strlen(clienCurr->fileHash));
+        write(updateFD, "\n", 1);
+        //print the deletion to terminal
+        printf("D %s", clienCurr -> filePath);
+        //we increment only the server pointer
+        clienCurr = clienCurr -> next;
       }
     }
   }
@@ -177,13 +213,6 @@ int update(char * projName){
   //return success
   return 0;
 }
-
-
-
-
-
-
-
 
 //returns 1 is first string comes before second string in the dictionary
 int charComparator (void* thing1, void* thing2){
@@ -281,17 +310,6 @@ struct entry ** insertionSort(void* toSort, int(*comparator)(void*, void*)) {
   //we're finished
   return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 /*helper method to populate the manifest linked lists*/
 struct entry ** populateManifest(char * buffer){
