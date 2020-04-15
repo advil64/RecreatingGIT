@@ -21,6 +21,16 @@
 #include<netinet/in.h>
 #include<sys/socket.h>
 #include<arpa/inet.h>
+#include <openssl/sha.h>
+
+//struct declarations, this one is for the contents of the manifest
+struct entry {
+    char * filePath;
+    int fileVer;
+    char * fileHash;
+    struct entry * next;
+    struct entry * prev;
+};
 
 //global variables
 int port;
@@ -31,4 +41,5 @@ int configure(char *, char *);
 int checkout(char *);
 int readConf();
 int readFile(int, char **);
+struct entry ** populateManifest(char *);
 #endif
