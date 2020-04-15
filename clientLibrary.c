@@ -118,6 +118,17 @@ int update(char * projName){
   }
   //pass in the client man to be populated
   int clientManSize = readFile(manFD, &clientMan);
+
+
+  /*
+  TODO: the following code is written for testing ONLY and is to be deleted once networking
+  has been implemented
+  */
+  int servFD = open("serverExample/.Manifest", O_RDONLY);
+  readFile(servFD, &servMan);
+  //testing area ends after this line
+
+
   //clientman -> holds client's manifest... servman -> holds server's manifest now compare the two
   //.Manifest outline <project version> (once) <path> <file version> <hash> (for each file)
   //first check if the project version is the same
@@ -209,6 +220,8 @@ int update(char * projName){
   free(servMan);
   //close the file descriptors
   close(manFD);
+  close(updateFD);
+  close(conflictFD);
   closedir(myDirec);
   //return success
   return 0;
@@ -287,7 +300,7 @@ int insertionSortHelper(void* toSort, int(*comparator)(void*, void*)){
 }
 
 /* How insertion sort basically works is that the first node is ALREADY SORTED in theory! */
-struct entry ** insertionSort(void* toSort, int(*comparator)(void*, void*)) {
+struct entry ** insertionSort(void* toSort, int(*comparator)(void*, void*)){
   //declarations used for the sorting, sortee will be moved
   struct entry * sortee = toSort;
   //if the sortee is null, there is nothing in the linked list

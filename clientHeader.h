@@ -42,4 +42,8 @@ int checkout(char *);
 int readConf();
 int readFile(int, char **);
 struct entry ** populateManifest(char *);
+int update(char *);
+int charComparator (void*, void*);
+int insertionSortHelper(void*, int(*comparator)(void*, void*));
+struct entry ** insertionSort(void*, int(*comparator)(void*, void*));
 #endif
