@@ -11,23 +11,26 @@
 #include <dirent.h>
 #include <limits.h>
 #include <time.h>
-#include<math.h>
-#include<netdb.h>
-#include<pthread.h>
-#include<signal.h>
-#include<unistd.h>
-#include<errno.h>
-#include<fcntl.h>
-#include<netinet/in.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
+#include <math.h>
+#include <netdb.h>
+#include <pthread.h>
+#include <signal.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <openssl/sha.h>
+
+//define the length for our hash stuff
+#define sha_length 41
 
 //struct declarations, this one is for the contents of the manifest
 struct entry {
-    char * filePath;
+    char filePath[PATH_MAX];
     int fileVer;
-    char * fileHash;
+    char fileHash[sha_length];
     struct entry * next;
     struct entry * prev;
 };
@@ -36,14 +39,20 @@ struct entry {
 int port;
 char IP[100];
 
+//global variables used when editing manifests
+struct entry * servManHead;
+struct entry * clienManHead;
+
 //functions
 int configure(char *, char *);
 int checkout(char *);
 int readConf();
 int readFile(int, char **);
-struct entry ** populateManifest(char *);
+void populateManifest(char *, struct entry **);
 int update(char *);
-int charComparator (void*, void*);
-int insertionSortHelper(void*, int(*comparator)(void*, void*));
-struct entry ** insertionSort(void*, int(*comparator)(void*, void*));
+int charComparator (char *, char *);
+void insertionSortHelper(struct entry**,struct entry*, int(*comparator)(char *, char *));
+int insertionSort(struct entry**, int(*comparator)(char *, char *));
+int upgrade(char *);
+int commit(char *);
 #endif

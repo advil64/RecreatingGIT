@@ -98,7 +98,7 @@ int update(char * projName){
   }
   //TODO: write code that actually connects to the server
   //this buffer ideally holds the server's .Manifest file, right now it is a placeholder
-  int servManSize;
+  //int servManSize;
   char * servMan = NULL;
   char * clientMan;
   int clientProjVer;
@@ -117,7 +117,8 @@ int update(char * projName){
     return 1;
   }
   //pass in the client man to be populated
-  int clientManSize = readFile(manFD, &clientMan);
+  //int clientManSize = (uncomment once we write networking code)
+  readFile(manFD, &clientMan);
 
 
   /*
@@ -144,27 +145,29 @@ int update(char * projName){
   } else{
     //the project versions are not the same and we need to traverse the two manifests
     //call on a method which reads both manifests line by line and populates the linked lists
-    struct entry * servManHead = *populateManifest(servMan);
-    struct entry * clienManHead = *populateManifest(clientMan);
+    populateManifest(servMan, &servManHead);
+    populateManifest(clientMan, &clienManHead);
+    //sort the two linked lists, there are definately lots of bugs in the sorting functions
+    insertionSort(&servManHead, charComparator);
+    insertionSort(&clienManHead, charComparator);
     //given the two heads, we need to figure out which files are different and need to be updated
     //first get traversal nodes for both the linked lists
     struct entry * servCurr = servManHead;
     struct entry * clienCurr = clienManHead;
-    //sort the two linked lists, there are definately lots of bugs in the sorting functions
-    servManHead = *insertionSort(servManHead, charComparator);
-    clienManHead = *insertionSort(clienManHead, charComparator);
     //this stores the new hash to check for conflicts
-    unsigned char hash[SHA_DIGEST_LENGTH];
+    unsigned char hash[sha_length];
     //for each entry in the server manifest, loop through the client manifest
     while(servCurr != NULL || clienCurr != NULL){
       //find the corresponding entry in the client
       if(strcmp(servCurr ->filePath, clienCurr ->filePath) == 0){
+        //memset before we do anything with the hash
+        memset(hash, '\0', sha_length);
         //to check for conflicts, first calculate the sha1 of the file in the client
-        SHA1(clientMan, strlen(clientMan), hash);
+        SHA1((unsigned char *)clientMan, strlen(clientMan), hash);
         //then check if the client and server hashes are the same
         if(strcmp(clienCurr ->fileHash, servCurr ->fileHash) != 0){
           //check if the client hash is also up to date
-          if(strcmp(hash, clienCurr -> fileHash) == 0){
+          if(strcmp((char *)hash, clienCurr -> fileHash) == 0){
             //we need to modify the file on the client side
             write(updateFD, "M ", 2);
             write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
@@ -178,7 +181,7 @@ int update(char * projName){
             write(conflictFD, "C ", 2);
             write(conflictFD, servCurr -> filePath, strlen(servCurr -> filePath));
             write(conflictFD, " ", 1);
-            write(conflictFD, hash, strlen(hash));
+            write(conflictFD, hash, strlen((char *)hash));
             write(conflictFD, "\n", 1);
             //print a warning to the terminal
             printf("Conflicts were found and must be resolved before the project can be updated.\n");
@@ -228,10 +231,10 @@ int update(char * projName){
 }
 
 //returns 1 is first string comes before second string in the dictionary
-int charComparator (void* thing1, void* thing2){
+int charComparator (char * thing1, char * thing2){
   //we are dealing with strings
-  char * arr1 = (char *)thing1;
-  char * arr2 = (char *)thing2;
+  char * arr1 = thing1;
+  char * arr2 = thing2;
   //we are working with strings or characters
   int counter = 0;
   //loop through both the strings
@@ -259,10 +262,9 @@ int charComparator (void* thing1, void* thing2){
 }
 
 //helps insert the given node into the right position
-int insertionSortHelper(void* toSort, int(*comparator)(void*, void*)){
-  //declarations used for the sorting, sortee will be moved
-  struct entry * sortee = (struct entry *)toSort;
-  struct entry * headNode = sortee;
+void insertionSortHelper(struct entry ** head,struct entry * toSort, int(*comparator)(char *, char *)){
+  //declarations used for the sorting, sortee will be moved 
+  struct entry * sortee = toSort;
   //extra nodes to do the sorting
   struct entry * temp1;
   struct entry * temp2;
@@ -293,16 +295,14 @@ int insertionSortHelper(void* toSort, int(*comparator)(void*, void*)){
   //check if sortee is the new head node
   if(sortee-> prev == NULL){
     //set the headnode to be sortee
-    headNode = sortee;
+    *head = sortee;
   }
-  //return the sorted headnode
-  return &headNode;
 }
 
 /* How insertion sort basically works is that the first node is ALREADY SORTED in theory! */
-struct entry ** insertionSort(void* toSort, int(*comparator)(void*, void*)){
+int insertionSort(struct entry ** toSort, int(*comparator)(char *, char *)){
   //declarations used for the sorting, sortee will be moved
-  struct entry * sortee = toSort;
+  struct entry * sortee = *toSort;
   //if the sortee is null, there is nothing in the linked list
   if(sortee == NULL){
     //the list is null
@@ -316,7 +316,7 @@ struct entry ** insertionSort(void* toSort, int(*comparator)(void*, void*)){
   //compare the current value with its next value unless sortee is at the end
   while(sortee != NULL) {
     //insert the given sortee into the correct position of the linked list
-    insertionSortHelper(sortee, comparator);
+    insertionSortHelper(toSort, sortee, comparator);
     //change sortee's to its next
     sortee = sortee -> next;
   }
@@ -325,7 +325,7 @@ struct entry ** insertionSort(void* toSort, int(*comparator)(void*, void*)){
 }
 
 /*helper method to populate the manifest linked lists*/
-struct entry ** populateManifest(char * buffer){
+void populateManifest(char * buffer, struct entry ** head){
   //loop through the given buffer and extract the info
   struct entry * prev = NULL;
   struct entry * next = NULL;
@@ -333,21 +333,24 @@ struct entry ** populateManifest(char * buffer){
   //this stores every line
   char * line;
   line = strtok(buffer, "\n");
+  line = strtok(NULL, "\n");
   //loop through and do repeat
   while(line != NULL){
     //allocate a new node
     struct entry * curr = (struct entry *)malloc(sizeof(struct entry));
-    //tokenize a new line
-    line = strtok(buffer, "\n");
     //now store the items in the line in their correct positions
     sscanf(line, "%s %d %s", curr -> filePath, &(curr -> fileVer), curr -> fileHash);
     //make curr's next equal to the next from above
     curr -> next = next;
     //make next equal curr
     next = curr;
+    //tokenize a new line
+    line = strtok(NULL, "\n");
   }
+  //next is the node at the front
+  *head = next;
   //one we are done populating the list we need to go through the list again and get previouses
-  curr = next;
+  curr = *head;
   //loop through the list
   while(curr != NULL){
     //assign the previouses
@@ -355,8 +358,6 @@ struct entry ** populateManifest(char * buffer){
     prev = curr;
     curr = curr -> next;
   }
-  //return the final next which becomes the head
-  return &next;
 }
 
 /*
@@ -408,6 +409,7 @@ int upgrade(char * projName){
   close(updateFD);
   //free the buffer
   free(updates);
+  return 0;
 }
 
 /*
@@ -430,6 +432,7 @@ int commit(char * projName){
     return 1;
   }
   //TODO: finish the rest of this function
+  return 0;
 }
 
 /*
@@ -456,6 +459,7 @@ int push(char * projName){
     return 1;
   }
   //TODO: Finish the rest of this function
+  return 0;
 }
 
 /* helper method to read the configure file */

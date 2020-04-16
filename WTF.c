@@ -67,7 +67,10 @@ if(strcmp(argv[1], "configure") == 0){
     printf("There was an error while updating the %s project.\n", argv[2]);
     exit(0);
   }
-} else if(strcmp(argv[1], "push") == 0){
+} 
+
+/*
+else if(strcmp(argv[1], "push") == 0){
   //first check that there are the right number of arguments
   if(argc != 3){
     //print an error
@@ -81,5 +84,8 @@ if(strcmp(argv[1], "configure") == 0){
     exit(0);
   }
 }
+*/
+
+
 return 0;
 }
