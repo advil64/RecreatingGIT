@@ -88,7 +88,7 @@ int update(char * projName){
     //return unsuccessfull
     return 1;
   }
-  //check if the given project exists on the client
+  //check if the given project exists on the client (closed)
   DIR *myDirec = opendir(projName);
   if(!myDirec){
     //the directory/project exists and we need to print an error
@@ -108,7 +108,7 @@ int update(char * projName){
   memset(manPath, '\0', PATH_MAX);
   strcpy(manPath, projName);
   strcat(manPath, "/.Manifest");
-  //we need to get the .manifest file in the directory
+  //we need to get the .manifest file in the directory (closed)
   int manFD = open(manPath, O_RDONLY);
   //if manFD is negative, return unsuccessfull
   if(manFD < 0){
@@ -127,7 +127,7 @@ int update(char * projName){
   */
   int servFD = open("serverExample/.Manifest", O_RDONLY);
   readFile(servFD, &servMan);
-  //testing area ends after this line
+  /*testing area ends after this line, replace the code with the correct socket creation code*/
 
 
   //clientman -> holds client's manifest... servman -> holds server's manifest now compare the two
@@ -135,7 +135,7 @@ int update(char * projName){
   //first check if the project version is the same
   sscanf(clientMan, "%d\n", &clientProjVer);
   sscanf(servMan, "%d\n", &servProjVer);
-  //.Update file tells us what to upgrade
+  //.Update file tells us what to upgrade (both closed)
   int updateFD = open(".Update", O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   int conflictFD = open(".Update", O_APPEND | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //if they are the same, then update is done
@@ -155,13 +155,13 @@ int update(char * projName){
     struct entry * servCurr = servManHead;
     struct entry * clienCurr = clienManHead;
     //this stores the new hash to check for conflicts
-    unsigned char hash[sha_length];
+    unsigned char hash[SHA_DIGEST_LENGTH];
     //for each entry in the server manifest, loop through the client manifest
     while(servCurr != NULL || clienCurr != NULL){
       //find the corresponding entry in the client
       if(strcmp(servCurr ->filePath, clienCurr ->filePath) == 0){
         //memset before we do anything with the hash
-        memset(hash, '\0', sha_length);
+        memset(hash, '\0', SHA_DIGEST_LENGTH);
         //to check for conflicts, first calculate the sha1 of the file in the client
         SHA1((unsigned char *)clientMan, strlen(clientMan), hash);
         //then check if the client and server hashes are the same
@@ -226,8 +226,21 @@ int update(char * projName){
   close(updateFD);
   close(conflictFD);
   closedir(myDirec);
+  freeLL(servManHead);
+  freeLL(clienManHead);
   //return success
   return 0;
+}
+
+/*This method frees linked lists*/
+void freeLL(struct entry * head){
+  struct entry * temp = NULL;
+  struct entry * curr = head;
+  while(curr != NULL){
+    temp = curr -> next;
+    free(curr);
+    curr = temp;
+  }
 }
 
 //returns 1 is first string comes before second string in the dictionary
@@ -336,8 +349,11 @@ void populateManifest(char * buffer, struct entry ** head){
   line = strtok(NULL, "\n");
   //loop through and do repeat
   while(line != NULL){
-    //allocate a new node
+    //allocate a new node (freed)
     struct entry * curr = (struct entry *)malloc(sizeof(struct entry));
+    //memsets so that we don't run into bugs
+    memset(curr -> filePath, '\0', PATH_MAX);
+    memset(curr -> fileHash, '\0', SHA_DIGEST_LENGTH);
     //now store the items in the line in their correct positions
     sscanf(line, "%s %d %s", curr -> filePath, &(curr -> fileVer), curr -> fileHash);
     //make curr's next equal to the next from above
@@ -373,6 +389,11 @@ update. If .Conflict exists, the client should tell the user to first resolve al
 */
 
 int upgrade(char * projName){
+  //given the project name, we need to create a path to the manifest
+  char manPath[PATH_MAX];
+  memset(manPath, '\0', PATH_MAX);
+  strcpy(manPath, projName);
+  strcat(manPath, "/.Conflict");
   //call the read configure file to find the IP and port
   if(readConf()){
     //if it failed print the error
@@ -390,6 +411,10 @@ int upgrade(char * projName){
     //update does not exist, return an error
     return 1;
   }
+  //path to the .update file
+  memset(manPath, '\0', PATH_MAX);
+  strcpy(manPath, projName);
+  strcat(manPath, "/.Update");
   //check to see if a .update file exists on the client side
   int updateFD = open(".Update", O_RDONLY);
   //if confd is negative, return unsuccessfull
@@ -401,16 +426,106 @@ int upgrade(char * projName){
   //buffer to store the update file
   char * updates;
   //read in the update file
-  readFile(updateFD, &updates);
+  int updateBytes = readFile(updateFD, &updates);
+  //check if there are any updates
+  if(updateBytes == 0){
+    printf("There are no updates at this time, please try again later.\n");
+    remove(manPath);
+    return 1;
+  }
+  //tokenize through the updates
+  char * line;
+  line = strtok(updates, "\n");
+  //store the instructions
+  char instruction;
+  char path[PATH_MAX];
+  char hash[SHA_DIGEST_LENGTH];
+  //memset those things to prevent bugs
+  memset(path, '\0', PATH_MAX);
+  memset(hash, '\0', SHA_DIGEST_LENGTH);
+  //path to the manifest
+  memset(manPath, '\0', PATH_MAX);
+  strcpy(manPath, projName);
+  strcat(manPath, "/.Manifest");
+  //open the .Manifest file and read it
+  int manFD = open(manPath, O_RDONLY);
+  //read the file
+  char * manifestBuffer;
+  readFile(manFD, &manifestBuffer);
+  //also populate the client manifests to make the changes to files
+  populateManifest(manifestBuffer, &clienManHead);
+  struct entry * curr;
+  //loop through the updates
+  while(line != NULL){
+    //curr starts off at the head
+    curr = clienManHead;
+    //read each line
+    sscanf(line, "%c %s %s", &instruction, path, hash);
+    //first check for deletions
+    if(instruction == 'D'){
+      //find that node in the client linked list
+      while(curr != NULL){
+        //check if the path matches
+        if(strcmp(curr -> filePath, path) == 0){
+          //edge cases
+          if(curr -> prev == NULL && curr -> next == NULL){
+            clienManHead = NULL;
+          } else if(curr -> prev == NULL && curr -> next != NULL){
+            clienManHead = curr -> next;
+            clienManHead -> prev = NULL;
+          } else if(curr -> prev != NULL && curr -> next == NULL){
+            curr -> prev -> next = NULL;
+          } else{
+            curr -> prev -> next = curr -> next;
+            curr -> next -> prev = curr -> prev;
+          }
+          free(curr);
+          //now delete the selected file
+          //remove(path); ask professor about this line
+          break;
+        }
+        curr = curr -> next;
+      }
+    } else if(instruction == 'A'){
+      //we would need to retrieve the file from the server and add it to the manifest
+      int fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+      //TODO: get those bytes from the server
+      char * serverFile;
+      //TODO: then write that shit to the file we just opened
+      //now we add a new node to the client linked list
+      curr  = (struct entry *)malloc(sizeof(struct entry));
+      curr -> next = clienManHead;
+      curr -> prev = NULL;
+      clienManHead -> prev = curr;
+      clienManHead = curr;
+      //we need to get the new added file's information from the server manifest
 
-  //TODO: add code which looks for the D M and A commands
 
+      //TODO: HOW TF DO I MAKE A SOCKET!?
+
+
+      //then close the file descriptor
+      close(fileFD);
+    } else if(instruction == 'M'){
+      //TODO: HOW TF DO I MAKE A SOCKET!?
+    }
+  }
+
+  //now we remove the .Update file from the client
+  memset(manPath, '\0', PATH_MAX);
+  strcpy(manPath, projName);
+  strcat(manPath, "/.Update");
+  remove(manPath);
   //close the files
   close(updateFD);
+  close(manFD);
   //free the buffer
   free(updates);
+  free(manifestBuffer);
+  freeLL(clienManHead);
   return 0;
 }
+
 
 /*
 The commit command will fail if the project name doesn’t exist on the server, if the server can not be contacted,
@@ -487,11 +602,11 @@ int readConf(){
   return 0;
 }
 
-/*helper method to read files*/
+/*helper method to read files returns the number of bytes in the buffer*/
 int readFile(int fd, char ** buff){
   //if confFD is positive, configure has been created, extract the IP and Port
   int buffSize = lseek(fd, (size_t)0, SEEK_END);
-  //store the contents of the config file
+  //store the contents of the config file (freed)
   *buff = malloc((buffSize+1)*sizeof(char));
   //set the offset back to the start
   lseek(fd, (size_t)0, SEEK_SET);

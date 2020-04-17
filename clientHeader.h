@@ -22,15 +22,13 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <openssl/sha.h>
-
-//define the length for our hash stuff
-#define sha_length 41
+#include <linux/limits.h>
 
 //struct declarations, this one is for the contents of the manifest
 struct entry {
     char filePath[PATH_MAX];
     int fileVer;
-    char fileHash[sha_length];
+    char fileHash[SHA_DIGEST_LENGTH];
     struct entry * next;
     struct entry * prev;
 };
@@ -55,4 +53,5 @@ void insertionSortHelper(struct entry**,struct entry*, int(*comparator)(char *, 
 int insertionSort(struct entry**, int(*comparator)(char *, char *));
 int upgrade(char *);
 int commit(char *);
+void freeLL(struct entry *);
 #endif
