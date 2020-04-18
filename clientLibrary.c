@@ -66,6 +66,31 @@ int checkout(char * projName){
   return 0;
 }
 
+/* Function to connect to the server on the client side (copied from Francisco's lecture)*/
+int connectToServer(){
+  sfd = socket(AF_INET, SOCK_STREAM, 0);
+  if(sfd < 0){
+    printf("Unable to setup the socket, try again.\n");
+    return 1;
+  }
+  struct hostent* result = gethostbyname(IP);
+  if(result == NULL){
+    printf("No such host by that given name try a different IP.\n");
+    return 1;
+  }
+  struct sockaddr_in serverAddress;
+  bzero((char *)&serverAddress, sizeof(serverAddress));
+  serverAddress.sin_family = AF_INET;
+  serverAddress.sin_port = htons(port);
+  bcopy((char *)result->h_addr_list[0],(char *)&serverAddress.sin_addr.s_addr, result->h_length);
+  if(connect(sfd, (struct sockaddr *)&serverAddress, sizeOf(serverAddress))){
+    return 1;
+  } else{
+    printf("Client has successfully connected to the server.\n");
+    return 0;
+  }
+}
+
 /*
 The update command will fail if the project name doesn’t exist on the server and if the client can not contact the
 server. The update command is rather complex since it is where lots of things are compared in order to maintain
@@ -83,23 +108,22 @@ since there are no server updates.
 int update(char * projName){
   //call the read configure file to find the IP and port
   if(readConf()){
-    //if it failed print the error
     printf("Please configure your client with a port and IP first.\n");
-    //return unsuccessfull
     return 1;
   }
   //check if the given project exists on the client (closed)
   DIR *myDirec = opendir(projName);
   if(!myDirec){
-    //the directory/project exists and we need to print an error
     printf("The project you want does not exist.\n");
-    //return unsuccessful
     return 1;
   }
-  //TODO: write code that actually connects to the server
-  //this buffer ideally holds the server's .Manifest file, right now it is a placeholder
-  //int servManSize;
-  char * servMan = NULL;
+  //this method connects to the server at the given IP address and populates the global hostent
+  if(connectToServer()){
+    printf("We're having difficulties connecting to the server at the given IP address and port.\n");
+    return 1;
+  }
+  int servManSize;
+  char * servMan;
   char * clientMan;
   int clientProjVer;
   int servProjVer;
@@ -113,55 +137,54 @@ int update(char * projName){
   //if manFD is negative, return unsuccessfull
   if(manFD < 0){
     printf("Manifest does not exist within the project.\n");
-    //the manifest does not exist, return an error
     return 1;
   }
-  //pass in the client man to be populated
-  //int clientManSize = (uncomment once we write networking code)
+  //pass in the client man to be populated 
   readFile(manFD, &clientMan);
-
-
-  /*
-  TODO: the following code is written for testing ONLY and is to be deleted once networking
-  has been implemented
-  */
-  int servFD = open("serverExample/.Manifest", O_RDONLY);
-  readFile(servFD, &servMan);
-  /*testing area ends after this line, replace the code with the correct socket creation code*/
-
-
-  //clientman -> holds client's manifest... servman -> holds server's manifest now compare the two
-  //.Manifest outline <project version> (once) <path> <file version> <hash> (for each file)
-  //first check if the project version is the same
+  //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
+  write(sfd, manPath, strlen(manPath));
+  read(sfd, &servManSize, sizeof(int));
+  if(servManSize < 0){
+    printf("The project you are looking for does not exist.\n");
+    return 1;
+  }
+  servMan = (char *)malloc((servManSize+1)*sizeof(char));
+  read(sfd, servMan, servManSize);
+  servMan[servManSize] = '\0';
+  /* clientman -> holds client's manifest... servman -> holds server's manifest now compare the two
+  .Manifest outline <project version> (once) <path> <file version> <hash> (for each file)
+  first check if the project version is the same then create the update and conflict accordingly*/
   sscanf(clientMan, "%d\n", &clientProjVer);
   sscanf(servMan, "%d\n", &servProjVer);
-  //.Update file tells us what to upgrade (both closed)
-  int updateFD = open(".Update", O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-  int conflictFD = open(".Update", O_APPEND | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  memset(manPath, '\0', PATH_MAX);
+  strcpy(manPath, projName);
+  strcat(manPath, "/.Update");
+  int updateFD = open(manPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  memset(manPath, '\0', PATH_MAX);
+  strcpy(manPath, projName);
+  strcat(manPath, "/.Conflict");
+  int conflictFD = open(manPath, O_APPEND | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  int hasConflict = FALSE;
   //if they are the same, then update is done
   if(clientProjVer == servProjVer){
-    //finished update
     printf("Up To Date");
   } else{
     //the project versions are not the same and we need to traverse the two manifests
-    //call on a method which reads both manifests line by line and populates the linked lists
     populateManifest(servMan, &servManHead);
     populateManifest(clientMan, &clienManHead);
-    //sort the two linked lists, there are definately lots of bugs in the sorting functions
     insertionSort(&servManHead, charComparator);
     insertionSort(&clienManHead, charComparator);
     //given the two heads, we need to figure out which files are different and need to be updated
-    //first get traversal nodes for both the linked lists
     struct entry * servCurr = servManHead;
     struct entry * clienCurr = clienManHead;
     //this stores the new hash to check for conflicts
-    unsigned char hash[SHA_DIGEST_LENGTH];
+    unsigned char hash[SHA_DIGEST_LENGTH+1];
     //for each entry in the server manifest, loop through the client manifest
     while(servCurr != NULL || clienCurr != NULL){
       //find the corresponding entry in the client
       if(strcmp(servCurr ->filePath, clienCurr ->filePath) == 0){
         //memset before we do anything with the hash
-        memset(hash, '\0', SHA_DIGEST_LENGTH);
+        memset(hash, '\0', SHA_DIGEST_LENGTH+1);
         //to check for conflicts, first calculate the sha1 of the file in the client
         SHA1((unsigned char *)clientMan, strlen(clientMan), hash);
         //then check if the client and server hashes are the same
@@ -173,20 +196,20 @@ int update(char * projName){
             write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
             write(updateFD, " ", 1);
             write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
+            write(updateFD, " ", 1);
+            write(updateFD, servCurr->fileVer, sizeof(int));
             write(updateFD, "\n", 1);
-            //print the modification to terminal
             printf("M %s", servCurr -> filePath);
           } else{
             //we have a conflict
+            hasConflict = TRUE;
             write(conflictFD, "C ", 2);
             write(conflictFD, servCurr -> filePath, strlen(servCurr -> filePath));
             write(conflictFD, " ", 1);
             write(conflictFD, hash, strlen((char *)hash));
             write(conflictFD, "\n", 1);
-            //print a warning to the terminal
             printf("Conflicts were found and must be resolved before the project can be updated.\n");
           }
-          //we need to download the modified 
         }
         //we increment both the currs
         servCurr = servCurr -> next;
@@ -198,6 +221,8 @@ int update(char * projName){
         write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
         write(updateFD, " ", 1);
         write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
+        write(updateFD, " ", 1);
+        write(updateFD, servCurr->fileVer, sizeof(int));
         write(updateFD, "\n", 1);
         //print the appendage to terminal
         printf("A %s", servCurr -> filePath);
@@ -210,6 +235,8 @@ int update(char * projName){
         write(updateFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
         write(updateFD, " ", 1);
         write(updateFD, clienCurr->fileHash, strlen(clienCurr->fileHash));
+        write(updateFD, " ", 1);
+        write(updateFD, servCurr->fileVer, sizeof(int));
         write(updateFD, "\n", 1);
         //print the deletion to terminal
         printf("D %s", clienCurr -> filePath);
@@ -218,6 +245,10 @@ int update(char * projName){
       }
     }
   }
+  //check for conflicts
+  if(!hasConflict){
+    remove(manPath);
+  }
   //free the buffers
   free(clientMan);
   free(servMan);
@@ -225,6 +256,7 @@ int update(char * projName){
   close(manFD);
   close(updateFD);
   close(conflictFD);
+  close(sfd);
   closedir(myDirec);
   freeLL(servManHead);
   freeLL(clienManHead);

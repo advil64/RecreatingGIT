@@ -6,8 +6,8 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 ### Update
 * [x] Checks to see if .Configure has been setup correctly and the client has stored the IP and Port number
 * [x] Checks to see that the project name exists on the client and prints an error if it's not there
-* [ ] Sets up a client socket and using the ip and port, checks to see if the project exists on the server and prints an error if it's not there
-* [ ] Retrieves the .Manifest file from the server and stores the contents in a local buffer
+* [x] Sets up a client socket and using the ip and port, checks to see if the project exists on the server and prints an error if it's not there
+* [x] Retrieves the .Manifest file from the server and stores the contents in a local buffer
 * [x] Retrieves the .Manifest file from the client and stores the contents in a local buffer
 * [x] Enters both contents into a Linked List and sorts both to be compared also gets both project versions
 * [x] If both project versions are the same, prints up to date. Otherwise edits the .Update after traversing both linked lists and checking if any files need to be Added/Modified/Deleted from the client

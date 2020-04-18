@@ -24,6 +24,9 @@
 #include <openssl/sha.h>
 #include <linux/limits.h>
 
+#define TRUE 1
+#define FALSE 0
+
 //struct declarations, this one is for the contents of the manifest
 struct entry {
     char filePath[PATH_MAX];
@@ -36,6 +39,7 @@ struct entry {
 //global variables
 int port;
 char IP[100];
+int sfd;
 
 //global variables used when editing manifests
 struct entry * servManHead;
