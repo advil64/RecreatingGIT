@@ -41,33 +41,31 @@ Note: The project is stored in the working directory once it recieves all the fi
 */
 
 int checkout(char * projName){
-  //call the read configure file to find the IP and port
-  if(readConf()){
-    //if it failed print the error
-    printf("Please configure your client with a port and IP first.\n");
-    //return unsuccessfull
-    return 1;
-  }
   //check if the given project already exists
   DIR *myDirec = opendir(projName);
   if(myDirec){
-    //the directory/project exists and we need to print an error
     printf("The project you want to check out already exists.\n");
-    //free the pointer
-    free(myDirec);
-    //close the directory
     closedir(myDirec);
-    //return unsuccessful
     return 1;
   }
   //we're good to go on the client side, we need to communicate with the server now
   printf("Attempting to connect to server...");
+  if(connectToServer()){
+    printf("We're having difficulties connecting to the server at the given IP address and port.\n");
+    return 1;
+  }
+  //now that we connected, we need to ask server for the project
   //TODO: write code that actually connects to the server
   return 0;
 }
 
 /* Function to connect to the server on the client side (copied from Francisco's lecture)*/
 int connectToServer(){
+  //call the read configure file to find the IP and port
+  if(readConf()){
+    printf("Please configure your client with a port and IP first.\n");
+    return 1;
+  }
   sfd = socket(AF_INET, SOCK_STREAM, 0);
   if(sfd < 0){
     printf("Unable to setup the socket, try again.\n");
@@ -106,11 +104,6 @@ since there are no server updates.
 */
 
 int update(char * projName){
-  //call the read configure file to find the IP and port
-  if(readConf()){
-    printf("Please configure your client with a port and IP first.\n");
-    return 1;
-  }
   //check if the given project exists on the client (closed)
   DIR *myDirec = opendir(projName);
   if(!myDirec){
@@ -428,13 +421,6 @@ int upgrade(char * projName){
   memset(manPath, '\0', PATH_MAX);
   strcpy(manPath, projName);
   strcat(manPath, "/.Conflict");
-  //call the read configure file to find the IP and port
-  if(readConf()){
-    //if it failed print the error
-    printf("Please configure your client with a port and IP first.\n");
-    //return unsuccessfull
-    return 1;
-  }
   //check to see if a .conflict file exists
   int conflictFD = open(manPath, O_RDONLY);
   if(conflictFD > 0){

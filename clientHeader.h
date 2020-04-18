@@ -54,8 +54,9 @@ void populateManifest(char *, struct entry **);
 int update(char *);
 int charComparator (char *, char *);
 void insertionSortHelper(struct entry**,struct entry*, int(*comparator)(char *, char *));
-int insertionSort(struct entry**, int(*comparator)(char *, char *));
+int insertionSort(struct entry **, int(*comparator)(char *, char *));
 int upgrade(char *);
 int commit(char *);
 void freeLL(struct entry *);
+void rewriteManifest(struct entry *, char *, int);
 #endif
