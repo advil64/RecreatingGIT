@@ -5,17 +5,11 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 ### Requests From Client
 
-#### Project
-* [ ] Client asks for a project in the following manner **Project: <Name>**, Server should first write the number of files/subdirectories to expect. 
-* [ ] Then server should give all the files/subdirectories in the project by using the following protocol. **If the server is sending a subdirectory:** instead of sending the size of the file, please sen. a negative number. **If the server is sending a file:** follow normal protocol for sending a file.
+*Project:* Client asks for a project in the following manner **Project: <Name>**, Server should first write the number of files/subdirectories to expect. Then server should give all the files in the project by using the following protocol. Just follow normal protocol for sending a file.
 
-#### File
-* [ ] Client asks for a file in the following manner **File: <Path>**, server should first send the number of bytes in the requested file, then send the file itself.
+*File:* Client asks for a file in the following manner **File: <Path>**, server should first send the number of bytes in the requested file, then send the file itself.
 
-#### Manifest project number
-* [ ] Client asks for a file in the following manner **manifestVersion**, server should retrieve the manifest version from the most recent manifest and send the number.
-
-#### More to come!
+*Manifest project number:* Client asks for a file in the following manner **manifestVersion**, server should retrieve the manifest version from the most recent manifest and send the number.
 
 ## Client Functions
 

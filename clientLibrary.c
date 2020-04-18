@@ -136,6 +136,7 @@ int update(char * projName){
   //pass in the client man to be populated 
   readFile(manFD, &clientMan);
   //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
+  write(sfd, "File: ", 6);
   write(sfd, manPath, strlen(manPath));
   read(sfd, &servManSize, sizeof(int));
   if(servManSize < 0){
@@ -518,6 +519,7 @@ int upgrade(char * projName){
       //we would need to retrieve the file from the server and add it to the manifest
       fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
       //follow protocol to retrieve the selected file from the server
+      write(sfd, "File: ", 6);
       write(sfd, path, strlen(path));
       read(sfd, &fileSize, sizeof(int));
       if(fileSize < 0){
@@ -544,6 +546,7 @@ int upgrade(char * projName){
       //we would need to retrieve the file from the server and add it to the manifest
       fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
       //follow protocol to retrieve the selected file from the server
+      write(sfd, "File: ", 6);
       write(sfd, path, strlen(path));
       read(sfd, &fileSize, sizeof(int));
       if(fileSize < 0){
