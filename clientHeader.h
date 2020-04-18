@@ -31,7 +31,7 @@
 struct entry {
     char filePath[PATH_MAX];
     int fileVer;
-    char fileHash[SHA_DIGEST_LENGTH];
+    char fileHash[SHA_DIGEST_LENGTH+1];
     struct entry * next;
     struct entry * prev;
 };

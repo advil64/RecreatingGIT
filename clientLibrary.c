@@ -137,6 +137,7 @@ int update(char * projName){
   //if manFD is negative, return unsuccessfull
   if(manFD < 0){
     printf("Manifest does not exist within the project.\n");
+    close(sfd);
     return 1;
   }
   //pass in the client man to be populated 
@@ -197,7 +198,7 @@ int update(char * projName){
             write(updateFD, " ", 1);
             write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
             write(updateFD, " ", 1);
-            write(updateFD, servCurr->fileVer, sizeof(int));
+            write(updateFD, &(servCurr->fileVer), sizeof(int));
             write(updateFD, "\n", 1);
             printf("M %s", servCurr -> filePath);
           } else{
@@ -222,7 +223,7 @@ int update(char * projName){
         write(updateFD, " ", 1);
         write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
         write(updateFD, " ", 1);
-        write(updateFD, servCurr->fileVer, sizeof(int));
+        write(updateFD, &(servCurr->fileVer), sizeof(int));
         write(updateFD, "\n", 1);
         //print the appendage to terminal
         printf("A %s", servCurr -> filePath);
@@ -236,7 +237,7 @@ int update(char * projName){
         write(updateFD, " ", 1);
         write(updateFD, clienCurr->fileHash, strlen(clienCurr->fileHash));
         write(updateFD, " ", 1);
-        write(updateFD, servCurr->fileVer, sizeof(int));
+        write(updateFD, &(servCurr->fileVer), sizeof(int));
         write(updateFD, "\n", 1);
         //print the deletion to terminal
         printf("D %s", clienCurr -> filePath);
@@ -385,7 +386,7 @@ void populateManifest(char * buffer, struct entry ** head){
     struct entry * curr = (struct entry *)malloc(sizeof(struct entry));
     //memsets so that we don't run into bugs
     memset(curr -> filePath, '\0', PATH_MAX);
-    memset(curr -> fileHash, '\0', SHA_DIGEST_LENGTH);
+    memset(curr -> fileHash, '\0', SHA_DIGEST_LENGTH+1);
     //now store the items in the line in their correct positions
     sscanf(line, "%s %d %s", curr -> filePath, &(curr -> fileVer), curr -> fileHash);
     //make curr's next equal to the next from above
@@ -421,6 +422,7 @@ update. If .Conflict exists, the client should tell the user to first resolve al
 */
 
 int upgrade(char * projName){
+  int newVersionNumber;
   //given the project name, we need to create a path to the manifest
   char manPath[PATH_MAX];
   memset(manPath, '\0', PATH_MAX);
@@ -434,25 +436,29 @@ int upgrade(char * projName){
     return 1;
   }
   //check to see if a .conflict file exists
-  int conflictFD = open(".Conflict", O_RDONLY);
-  //if confd is positive, return unsuccessfull
+  int conflictFD = open(manPath, O_RDONLY);
   if(conflictFD > 0){
     printf("Please resolve conflicts before continuing.\n");
-    //close the file descriptor
     close(conflictFD);
-    //update does not exist, return an error
     return 1;
   }
+  //this method connects to the server at the given IP address and populates the global hostent
+  if(connectToServer()){
+    printf("We're having difficulties connecting to the server at the given IP address and port.\n");
+    return 1;
+  }
+  //get the version number from the server
+  write(sfd, "manifestVersion", 16);
+  read(sfd, &newVersionNumber, sizeof(int));
   //path to the .update file
   memset(manPath, '\0', PATH_MAX);
   strcpy(manPath, projName);
   strcat(manPath, "/.Update");
   //check to see if a .update file exists on the client side
-  int updateFD = open(".Update", O_RDONLY);
+  int updateFD = open(manPath, O_RDONLY);
   //if confd is negative, return unsuccessfull
   if(updateFD < 0){
     printf("There are no updates at this time, please try again later.\n");
-    //update does not exist, return an error
     return 1;
   }
   //buffer to store the update file
@@ -471,10 +477,10 @@ int upgrade(char * projName){
   //store the instructions
   char instruction;
   char path[PATH_MAX];
-  char hash[SHA_DIGEST_LENGTH];
+  char hash[SHA_DIGEST_LENGTH+1];
   //memset those things to prevent bugs
   memset(path, '\0', PATH_MAX);
-  memset(hash, '\0', SHA_DIGEST_LENGTH);
+  memset(hash, '\0', SHA_DIGEST_LENGTH+1);
   //path to the manifest
   memset(manPath, '\0', PATH_MAX);
   strcpy(manPath, projName);
@@ -487,12 +493,16 @@ int upgrade(char * projName){
   //also populate the client manifests to make the changes to files
   populateManifest(manifestBuffer, &clienManHead);
   struct entry * curr;
+  char * serverFile;
+  int fileFD;
+  int fileSize;
+  int version;
   //loop through the updates
   while(line != NULL){
     //curr starts off at the head
     curr = clienManHead;
     //read each line
-    sscanf(line, "%c %s %s", &instruction, path, hash);
+    sscanf(line, "%c %s %s %d", &instruction, path, hash, &version);
     //first check for deletions
     if(instruction == 'D'){
       //find that node in the client linked list
@@ -520,29 +530,57 @@ int upgrade(char * projName){
       }
     } else if(instruction == 'A'){
       //we would need to retrieve the file from the server and add it to the manifest
-      int fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-      //TODO: get those bytes from the server
-      char * serverFile;
-      //TODO: then write that shit to the file we just opened
+      fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+      //follow protocol to retrieve the selected file from the server
+      write(sfd, path, strlen(path));
+      read(sfd, &fileSize, sizeof(int));
+      if(fileSize < 0){
+        printf("The project/file you are looking for does not exist.\n");
+        return 1;
+      }
+      serverFile = (char *)malloc((fileSize+1)*sizeof(char));
+      read(sfd, serverFile, fileSize);
+      serverFile[fileSize] = '\0';
+      //Then write that shit to the file we just opened
+      write(fileFD, serverFile, fileSize);
       //now we add a new node to the client linked list
       curr  = (struct entry *)malloc(sizeof(struct entry));
       curr -> next = clienManHead;
       curr -> prev = NULL;
+      strcpy(curr -> filePath, path);
+      curr ->fileVer = version;
+      strcpy(curr -> fileHash, hash);
       clienManHead -> prev = curr;
       clienManHead = curr;
-      //we need to get the new added file's information from the server manifest
-
-
-      //TODO: HOW TF DO I MAKE A SOCKET!?
-
-
       //then close the file descriptor
       close(fileFD);
     } else if(instruction == 'M'){
-      //TODO: HOW TF DO I MAKE A SOCKET!?
+      //we would need to retrieve the file from the server and add it to the manifest
+      fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+      //follow protocol to retrieve the selected file from the server
+      write(sfd, path, strlen(path));
+      read(sfd, &fileSize, sizeof(int));
+      if(fileSize < 0){
+        printf("The project/file you are looking for does not exist.\n");
+        return 1;
+      }
+      serverFile = (char *)malloc((fileSize+1)*sizeof(char));
+      read(sfd, serverFile, fileSize);
+      serverFile[fileSize] = '\0';
+      //Then write that shit to the file we just opened
+      write(fileFD, serverFile, fileSize);
+      //loop through to find the entry to be modified and modify it
+      while(curr != NULL){
+        if(strcmp(curr -> filePath, path) == 0){
+          curr -> fileVer = version;
+          strcpy(curr -> fileHash, hash);
+          break;
+        }
+        curr = curr -> next;
+      }
     }
   }
-
+  rewriteManifest(clienManHead, manPath, newVersionNumber);
   //now we remove the .Update file from the client
   memset(manPath, '\0', PATH_MAX);
   strcpy(manPath, projName);
@@ -551,11 +589,32 @@ int upgrade(char * projName){
   //close the files
   close(updateFD);
   close(manFD);
+  close(sfd);
   //free the buffer
   free(updates);
   free(manifestBuffer);
   freeLL(clienManHead);
   return 0;
+}
+
+/*thie method takes in a manifest linked list and rewrites the manifest*/
+void rewriteManifest(struct entry * head, char * path, int version){
+  //first open the manifest
+  int manFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  //write the newest version number on the first line
+  write(manFD, &version, sizeof(int));
+  write(manFD, '\n', 1);
+  struct entry * curr = head;
+  //loop through the linked list and write accordingly
+  while(curr != NULL){
+    write(manFD, curr -> filePath, strlen(curr -> filePath));
+    write(manFD, " ", 1);
+    write(manFD, curr->fileHash, strlen(curr->fileHash));
+    write(manFD, " ", 1);
+    write(manFD, &(curr->fileVer), sizeof(int));
+    write(manFD, "\n", 1);
+    curr = curr -> next;
+  }
 }
 
 
