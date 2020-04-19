@@ -12,6 +12,8 @@ struct projNode { // this is a node that holds the project name and what not
     struct projNode * next;
 };
 
+int creator (char * name);
+
 struct projNode * nameTbl[256]; // hashtable that holds all project names, easy O(1) access
 
 int main (int argc, char ** argv) {
@@ -57,7 +59,7 @@ int creator (char * name) { // will see if the name of the project is there or n
                 return -1; // sadly the project name does exist, therefore this is a problem
             }
             else {
-                temp = temp ->next // moving the nodes along the linked list
+                temp = temp ->next; // moving the nodes along the linked list
             }
         }
         // this means that we have reached the end of the linked list and we have to create the project since it does not exist
@@ -67,4 +69,61 @@ int creator (char * name) { // will see if the name of the project is there or n
         mkdir(name); // makes the directory
         return 1;
     }
+}
+
+int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory that is meant to be deleted
+  //stores the filepath of our subdirectories
+  char filePBuff[PATH_MAX + 1];
+  //in the case of recursion, update the filepath so that we do not get lost
+  strcpy(filePBuff, currDirec);
+  //add a forward-slash at the end to get ready to add more to the path
+  strcat(filePBuff, "/");
+  //the dirent struct which holds whatever readdir returns
+  struct dirent *currDir;
+  //loop through the contents of the directory and store in files array
+  while((currDir = readdir(myDirectory)) != NULL){
+    //skip the . and .. and dsstore file
+    if(strcmp(currDir->d_name, ".") == 0 || strcmp(currDir->d_name, "..") == 0 || strcmp(currDir->d_name,".DS_Store") == 0){
+      //skip the iteration
+      continue;
+    }
+    //first check if the currdir is a regular file or a directory
+    if(currDir->d_type == DT_DIR){
+      //add the directory in question to the path
+      strcat(filePBuff, currDir->d_name);
+      //traverse the new directory
+      counter = direcTraverse(opendir(filePBuff), counter, currSize, filePBuff);
+      //we are back in the original file, get rid of the previous file path
+      strcpy(filePBuff, currDirec);
+      //put the forward-slash back in there
+      strcat(filePBuff, "/");
+      //find the new max size of the array
+      currSize = ((counter%100)+1)*100;
+    } else if(currDir -> d_type == DT_REG){
+      //allocate space for the file path
+      files[counter] = (char *)malloc((PATH_MAX+1) * sizeof(char));
+      //add the file path to the array
+      strcpy(files[counter],filePBuff);
+      //store the names of the files in our files array
+      strcat(files[counter], currDir->d_name);
+      //just to test the code
+      //printf("%s\n", files[counter]);
+      //check if files array needs more space
+      if(++counter >= currSize){
+        //realloc 100 more spaces in our files array
+        files = realloc(files, (currSize+100) * sizeof(char *));
+        //check is the given file exists
+        if(!files){
+          //file does not exist it is a fatal error
+          printf("FATAL ERROR: Not enough memory\n");
+          //exit the code
+          exit(1);
+        }
+        //change the curr size accordingly
+        currSize += 100;
+      }
+    }
+  }
+  //return the current count
+  return counter;
 }
