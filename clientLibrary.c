@@ -41,6 +41,9 @@ Note: The project is stored in the working directory once it recieves all the fi
 */
 
 int checkout(char * projName){
+  int numOfFiles;
+  char path[PATH_MAX];
+  int i;
   //check if the given project already exists
   DIR *myDirec = opendir(projName);
   if(myDirec){
@@ -55,8 +58,27 @@ int checkout(char * projName){
     return 1;
   }
   //now that we connected, we need to ask server for the project
-  //TODO: write code that actually connects to the server
+  write(sfd, "Project: ", 9);
+  write(sfd, projName, strlen(projName));
+  read(sfd, &numOfFiles, sizeof(int));
+  //loop through the files and write them one by one
+  for(i = 0; i < numOfFiles; i++){
+    read(sfd, path, PATH_MAX);
+    writeFile(path);
+  }
   return 0;
+}
+
+/*
+The add command will fail if the project does not exist on the client. The client will add an entry for the the file
+to its own .Manifest with a new version number and hashcode.
+(It is not required, but it may speed things up/make things easier for you if you add a code in the .Manifest to
+signify that this file was added locally and the server hasn't seen it yet
+*/
+int add(char * projName, char * filePath){
+  //check to see
+  //calculate the hash and 
+  //first populate the manifest and 
 }
 
 /* Function to connect to the server on the client side (copied from Francisco's lecture)*/
@@ -516,21 +538,8 @@ int upgrade(char * projName){
         curr = curr -> next;
       }
     } else if(instruction == 'A'){
-      //we would need to retrieve the file from the server and add it to the manifest
-      fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-      //follow protocol to retrieve the selected file from the server
-      write(sfd, "File: ", 6);
-      write(sfd, path, strlen(path));
-      read(sfd, &fileSize, sizeof(int));
-      if(fileSize < 0){
-        printf("The project/file you are looking for does not exist.\n");
-        return 1;
-      }
-      serverFile = (char *)malloc((fileSize+1)*sizeof(char));
-      read(sfd, serverFile, fileSize);
-      serverFile[fileSize] = '\0';
-      //Then write that shit to the file we just opened
-      write(fileFD, serverFile, fileSize);
+      //we need to write the file at the path in the client
+      writeFile(path);
       //now we add a new node to the client linked list
       curr  = (struct entry *)malloc(sizeof(struct entry));
       curr -> next = clienManHead;
@@ -544,18 +553,7 @@ int upgrade(char * projName){
       close(fileFD);
     } else if(instruction == 'M'){
       //we would need to retrieve the file from the server and add it to the manifest
-      fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-      //follow protocol to retrieve the selected file from the server
-      write(sfd, "File: ", 6);
-      write(sfd, path, strlen(path));
-      read(sfd, &fileSize, sizeof(int));
-      if(fileSize < 0){
-        printf("The project/file you are looking for does not exist.\n");
-        return 1;
-      }
-      serverFile = (char *)malloc((fileSize+1)*sizeof(char));
-      read(sfd, serverFile, fileSize);
-      serverFile[fileSize] = '\0';
+      writeFile(path);
       //Then write that shit to the file we just opened
       write(fileFD, serverFile, fileSize);
       //loop through to find the entry to be modified and modify it
@@ -584,6 +582,54 @@ int upgrade(char * projName){
   free(manifestBuffer);
   freeLL(clienManHead);
   return 0;
+}
+
+/*This method seeks out non-existant directories and creates them*/
+void writeFile(char * path){
+  /*line: holds the part of the string to append, next is used to make sure that we do not mkdir the final
+  piece wich is the file, appendage string holds the parts, file size stores the number of bytes to be read
+  server file holds the file that is retrieved from the server*/
+  char * line = strtok(path, "/");
+  char * next = strtok(NULL, "\n");
+  char appendageString[PATH_MAX];
+  int fileSize;
+  char * serverFile;
+  memset(appendageString, '\0', PATH_MAX);
+  DIR *myDirec;
+  //loop through and get all the subdirectories
+  while(next != NULL){
+    strcat(appendageString, "/");
+    strcat(appendageString, line);
+    //check is subdirectory exists
+    myDirec = opendir(appendageString);
+    if(!myDirec){
+      mkdir(appendageString, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    } else{
+      free(myDirec);
+    }
+    //traverse
+    free(line);
+    line = next;
+    free(next);
+    next = strtok(NULL, "\n");
+  }
+  //we would need to retrieve the file from the server and add it to the manifest
+  int fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  //follow protocol to retrieve the selected file from the server
+  write(sfd, "File: ", 6);
+  write(sfd, path, strlen(path));
+  read(sfd, &fileSize, sizeof(int));
+  if(fileSize < 0){
+    printf("The project/file you are looking for does not exist.\n");
+    return 1;
+  }
+  serverFile = (char *)malloc((fileSize+1)*sizeof(char));
+  read(sfd, serverFile, fileSize);
+  serverFile[fileSize] = '\0';
+  write(fileFD, serverFile, fileSize);
+  //frees and closes
+  close(fileFD);
+  free(serverFile);
 }
 
 /*thie method takes in a manifest linked list and rewrites the manifest*/
