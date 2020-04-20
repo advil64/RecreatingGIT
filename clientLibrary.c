@@ -76,9 +76,49 @@ to its own .Manifest with a new version number and hashcode.
 signify that this file was added locally and the server hasn't seen it yet
 */
 int add(char * projName, char * filePath){
-  //check to see
-  //calculate the hash and 
-  //first populate the manifest and 
+  //prepend the project name to the file path
+  char path[PATH_MAX];
+  memset(path, '\0', PATH_MAX);
+  strcat(path, projName);
+  strcat(path, "/");
+  strcat(path, filePath);
+  int fileFD = open(path, O_RDONLY);
+  char * filebuffer;
+  int len = readFile(fileFD, &filebuffer);
+  close(fileFD);
+  //populate them manifest linked lists
+  char manpath[PATH_MAX];
+  memset(manpath, '\0', PATH_MAX);
+  strcat(manpath, projName);
+  strcat(manpath, "/.Manifest");
+  char * manifest;
+  int manFD = open(manpath, O_RDONLY);
+  readFile(manFD, &manifest);
+  int version = populateManifest(manifest, clienManHead);
+  close(manFD);
+  char hash[SHA_DIGEST_LENGTH];
+  SHA1((unsigned char *)filebuffer, len, hash);
+  //traverse through the linked list to check if the file is present
+  struct entry * curr = clienManHead;
+  while(curr != NULL){
+    if(strcmp(curr -> filePath, path) == 0){
+      strcpy(curr -> fileHash, hash);
+      curr -> tag = 'M';
+      break;
+    }
+  }
+  if(curr == NULL){
+    curr  = (struct entry *)malloc(sizeof(struct entry));
+    curr -> next = clienManHead;
+    curr -> prev = NULL;
+    strcpy(curr -> filePath, path);
+    curr ->fileVer = 1;
+    strcpy(curr -> fileHash, hash);
+    curr -> tag = 'A';
+    clienManHead -> prev = curr;
+    clienManHead = curr;
+  }
+  rewriteManifest(clienManHead, manpath, version); 
 }
 
 /* Function to connect to the server on the client side (copied from Francisco's lecture)*/
@@ -387,7 +427,7 @@ int insertionSort(struct entry ** toSort, int(*comparator)(char *, char *)){
 }
 
 /*helper method to populate the manifest linked lists*/
-void populateManifest(char * buffer, struct entry ** head){
+int populateManifest(char * buffer, struct entry ** head){
   //loop through the given buffer and extract the info
   struct entry * prev = NULL;
   struct entry * next = NULL;
@@ -395,6 +435,8 @@ void populateManifest(char * buffer, struct entry ** head){
   //this stores every line
   char * line;
   line = strtok(buffer, "\n");
+  int version;
+  sscanf(buffer, "%d", &version);
   line = strtok(NULL, "\n");
   //loop through and do repeat
   while(line != NULL){
@@ -423,6 +465,7 @@ void populateManifest(char * buffer, struct entry ** head){
     prev = curr;
     curr = curr -> next;
   }
+  return version;
 }
 
 /*

@@ -67,25 +67,20 @@ if(strcmp(argv[1], "configure") == 0){
     printf("There was an error while updating the %s project.\n", argv[2]);
     exit(0);
   }
-} 
-
-/*
-else if(strcmp(argv[1], "push") == 0){
+} else if(strcmp(argv[1], "add") == 0){
   //first check that there are the right number of arguments
-  if(argc != 3){
+  if(argc != 4){
     //print an error
     printf("Insufficient arguments.\n");
     exit(0);
   }
   //call the commit method 
-  if(push(argv[2])){
+  if(add(argv[2], argv[3])){
     //print an error
-    printf("There was an error while updating the %s project.\n", argv[2]);
+    printf("There was an error while adding %s to the %s project.\n", argv[2]);
     exit(0);
   }
 }
-*/
-
 
 return 0;
 }

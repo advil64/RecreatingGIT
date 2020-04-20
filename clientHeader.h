@@ -32,6 +32,7 @@ struct entry {
     char filePath[PATH_MAX];
     int fileVer;
     char fileHash[SHA_DIGEST_LENGTH+1];
+    char tag;
     struct entry * next;
     struct entry * prev;
 };
@@ -50,7 +51,7 @@ int configure(char *, char *);
 int checkout(char *);
 int readConf();
 int readFile(int, char **);
-void populateManifest(char *, struct entry **);
+int populateManifest(char *, struct entry **);
 int update(char *);
 int charComparator (char *, char *);
 void insertionSortHelper(struct entry**,struct entry*, int(*comparator)(char *, char *));
