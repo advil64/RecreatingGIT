@@ -1,22 +1,62 @@
 #include "clientHeader.h"
 
 /*
-The configure command will save the IP address (or hostname) and port of the server for use by later
-commands. This command will not attempt a connection to the server, but insteads saves the IP and port number
-so that they are not needed as parameters for all other commands. The IP (or hostname) and port should be
-written out to a ./.configure file. All commands that need to communicate with the server should first try to get
-the address information and port from the ./.configure file and must fail if configure wasn’t run before they were
-called. All other commands must also fail if a connection to the server cannot be established.
-Note: if you can write out to an environment variable that persists between Processes, feel free to do so, but all
-recent feedback has been that security upgrades to the iLabs seem to have obviated this option.
+Create initializes (creates…) a project on both the server and client. What does this mean? The client 
+should send a message to the server stating that a new project is being created locally with <project 
+name> so the server should also initialize a new project with that name. The server is responsible for 
+creating a .Manifest file and sending it over to the client. The client just needs to setup the project 
+directory locally and store the .Manifest into it.
 */
+int create(char * projName){
 
+  //check if the given project already exists
+  DIR *myDirec = opendir(projName);
+  if(myDirec){
+    printf("The project you want to create already exists.\n");
+    closedir(myDirec);
+    return 1;
+  }
+
+  //tell the server to create the project as well
+  write(sfd, "Create:", 7);
+  write(sfd, projName, strlen(projName));
+  int fileSize = 0;
+  read(sfd, &fileSize, sizeof(int));
+  if(fileSize < 0){
+    return 1;
+  }
+  char * manFile = (char *)malloc(fileSize);
+  read(sfd, manFile, fileSize);
+
+  //set up the .Manifest files
+  char manPath[PATH_MAX];
+  memset(manPath, '\0', PATH_MAX);
+  strcat(manPath, projName);
+  strcat(manPath, "/.Manifest");
+  int manFD = open(manPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  write(manFD, manFile, strlen(manFile));
+
+  //close everything
+  close(manFD);
+  return 0;
+}
+
+/*
+The configure command will save the IP address (or hostname) and port of the server for use by later 
+commands. This command will not attempt a connection to the server, but insteads saves the IP and port 
+number so that they are not needed as parameters for all other commands. The IP (or hostname) and port 
+should be written out to a ./.configure file. All commands that need to communicate with the server 
+should first try to get the address information and port from the ./.configure file and must fail if 
+configure wasn’t run before they were called. All other commands must also fail if a connection to the 
+server cannot be established. Note: if you can write out to an environment variable that persists 
+between Processes, feel free to do so, but all recent feedback has been that security upgrades to the 
+iLabs seem to have obviated this option.
+*/
 int configure(char * myIp, char * myPort){
   //open the .configure file to write ip and port
   int confFD = open(".configure", O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //check if confFD is positive
   if(confFD < 0){
-    //unsuccessful
     return 0;
   }
   //write IP/Host to the .configure file
@@ -31,13 +71,13 @@ int configure(char * myIp, char * myPort){
 }
 
 /*
-The checkout command will fail if the project name doesn’t exist on the server, the client can't communicate
-with the server, if the project name already exists on the client side or if configure was not run on the client side.
-If it does run it will request the entire project from the server, which will send over the current version of the
-project .Manifest as well as all the files that are listed in it. The client will be responsible for receiving the
-project, creating any subdirectories under the project and putting all files in to place as well as saving the
-.Manifest.
-Note: The project is stored in the working directory once it recieves all the files from the server
+The checkout command will fail if the project name doesn’t exist on the server, the client can't 
+communicate with the server, if the project name already exists on the client side or if configure was 
+not run on the client side. If it does run it will request the entire project from the server, which will 
+send over the current version of the project .Manifest as well as all the files that are listed in it. 
+The client will be responsible for receiving the project, creating any subdirectories under the project 
+and putting all files in to place as well as saving the .Manifest. Note: The project is stored in the 
+working directory once it recieves all the files from the server
 */
 
 int checkout(char * projName){
@@ -70,22 +110,32 @@ int checkout(char * projName){
 }
 
 /*
-The add command will fail if the project does not exist on the client. The client will add an entry for the the file
-to its own .Manifest with a new version number and hashcode.
-(It is not required, but it may speed things up/make things easier for you if you add a code in the .Manifest to
-signify that this file was added locally and the server hasn't seen it yet
+The add command will fail if the project does not exist on the client. The client will add an entry for 
+the the file to its own .Manifest with a new version number and hashcode. (It is not required, but it may 
+speed things up/make things easier for you if you add a code in the .Manifest to signify that this file 
+was added locally and the server hasn't seen it yet. WE ARE GOOD BOIS
 */
 int add(char * projName, char * filePath){
+
   //prepend the project name to the file path
   char path[PATH_MAX];
   memset(path, '\0', PATH_MAX);
   strcat(path, projName);
   strcat(path, "/");
   strcat(path, filePath);
+
+  //checks to see if the chosen file exists to be added
   int fileFD = open(path, O_RDONLY);
+  if(fileFD < 0){
+    printf("The chosen file does not exist on the client.\n");
+    return 1;
+  }
+
+  //store the file in a buffer
   char * filebuffer;
   int len = readFile(fileFD, &filebuffer);
   close(fileFD);
+
   //populate them manifest linked lists
   char manpath[PATH_MAX];
   memset(manpath, '\0', PATH_MAX);
@@ -94,31 +144,55 @@ int add(char * projName, char * filePath){
   char * manifest;
   int manFD = open(manpath, O_RDONLY);
   readFile(manFD, &manifest);
-  int version = populateManifest(manifest, clienManHead);
+  int version = populateManifest(manifest, &clienManHead);
   close(manFD);
-  char hash[SHA_DIGEST_LENGTH];
-  SHA1((unsigned char *)filebuffer, len, hash);
+
+  //calculate and convert the hash
+  char hash[SHA_DIGEST_LENGTH+1];
+  SHA1((unsigned char *)filebuffer, len, (unsigned char *)hash);
+  hash[SHA_DIGEST_LENGTH] = '\0';
+  char hex[hashLen+1];
+  memset(hex, '\0', hashLen+1);
+  int x = 0;
+  int i = 0;
+  while(hash[x] != '\0'){
+    snprintf((char*)(hex+i),3,"%02X", hash[x]);
+    x+=1;
+    i+=2;
+  }
+
   //traverse through the linked list to check if the file is present
   struct entry * curr = clienManHead;
   while(curr != NULL){
     if(strcmp(curr -> filePath, path) == 0){
-      strcpy(curr -> fileHash, hash);
+      strcpy(curr -> fileHash, hex);
       curr -> tag = 'M';
       break;
     }
+    curr = curr -> next;
   }
+
+  //if it's not, then add it
   if(curr == NULL){
     curr  = (struct entry *)malloc(sizeof(struct entry));
     curr -> next = clienManHead;
     curr -> prev = NULL;
+    memset(curr -> filePath, '\0', PATH_MAX);
     strcpy(curr -> filePath, path);
     curr ->fileVer = 1;
-    strcpy(curr -> fileHash, hash);
+    strcpy(curr -> fileHash, hex);
+    curr -> fileHash[hashLen] = '\0';
     curr -> tag = 'A';
-    clienManHead -> prev = curr;
+    if(clienManHead != NULL){
+      clienManHead -> prev = curr;
+    }
     clienManHead = curr;
   }
-  rewriteManifest(clienManHead, manpath, version); 
+
+  //rewrite the manifest with the new hashes and free the list
+  rewriteManifest(clienManHead, manpath, version);
+  freeLL(clienManHead);
+  return 0;
 }
 
 /* Function to connect to the server on the client side (copied from Francisco's lecture)*/
@@ -143,7 +217,7 @@ int connectToServer(){
   serverAddress.sin_family = AF_INET;
   serverAddress.sin_port = htons(port);
   bcopy((char *)result->h_addr_list[0],(char *)&serverAddress.sin_addr.s_addr, result->h_length);
-  if(connect(sfd, (struct sockaddr *)&serverAddress, sizeOf(serverAddress))){
+  if(connect(sfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress))){
     return 1;
   } else{
     printf("Client has successfully connected to the server.\n");
@@ -152,19 +226,18 @@ int connectToServer(){
 }
 
 /*
-The update command will fail if the project name doesn’t exist on the server and if the client can not contact the
-server. The update command is rather complex since it is where lots of things are compared in order to maintain
-proper versioning. If update doesn't work correctly, almost nothing else will.
-Update's purpose is to fetch the server's .Manifest for the specified project, compare every entry in it to the
-client's .Manifest and see if there are any changes on the server side for the client. If there are, it adds a line to
-a .Update file to reflect the change and outputs some information to STDOUT to let the user know what needs to
-change/will be changed. This is done for every difference discovered. If there is an update but the user changed
-the file that needs to be updated, update should write instead to a .Conflict file and delete any .Update file (if
-there is one). If the server has no changes for the client, update can stop and does not have to do a line-by-line
-analysis of the .Manifest files, and should blank the .Update file and delete any .Conflict file (if there is one),
-since there are no server updates.
+The update command will fail if the project name doesn’t exist on the server and if the client can not 
+contact the server. The update command is rather complex since it is where lots of things are compared in 
+order to maintain proper versioning. If update doesn't work correctly, almost nothing else will. Update's 
+purpose is to fetch the server's .Manifest for the specified project, compare every entry in it to the 
+client's .Manifest and see if there are any changes on the server side for the client. If there are, it 
+adds a line to a .Update file to reflect the change and outputs some information to STDOUT to let the 
+user know what needs to change/will be changed. This is done for every difference discovered. If there is 
+an update but the user changed the file that needs to be updated, update should write instead to a 
+.Conflict file and delete any .Update file (if there is one). If the server has no changes for the client, 
+update can stop and does not have to do a line-by-line analysis of the .Manifest files, and should blank 
+the .Update file and delete any .Conflict file (if there is one), since there are no server updates.
 */
-
 int update(char * projName){
   //check if the given project exists on the client (closed)
   DIR *myDirec = opendir(projName);
@@ -428,25 +501,28 @@ int insertionSort(struct entry ** toSort, int(*comparator)(char *, char *)){
 
 /*helper method to populate the manifest linked lists*/
 int populateManifest(char * buffer, struct entry ** head){
+
   //loop through the given buffer and extract the info
   struct entry * prev = NULL;
   struct entry * next = NULL;
   struct entry * curr = NULL;
+
   //this stores every line
   char * line;
   line = strtok(buffer, "\n");
   int version;
   sscanf(buffer, "%d", &version);
   line = strtok(NULL, "\n");
+
   //loop through and do repeat
   while(line != NULL){
     //allocate a new node (freed)
     struct entry * curr = (struct entry *)malloc(sizeof(struct entry));
     //memsets so that we don't run into bugs
     memset(curr -> filePath, '\0', PATH_MAX);
-    memset(curr -> fileHash, '\0', SHA_DIGEST_LENGTH+1);
+    memset(curr -> fileHash, '\0', hashLen+1);
     //now store the items in the line in their correct positions
-    sscanf(line, "%s %d %s", curr -> filePath, &(curr -> fileVer), curr -> fileHash);
+    sscanf(line, "%s %d %s %c", curr -> filePath, &(curr -> fileVer), curr -> fileHash, &(curr -> tag));
     //make curr's next equal to the next from above
     curr -> next = next;
     //make next equal curr
@@ -545,9 +621,6 @@ int upgrade(char * projName){
   //also populate the client manifests to make the changes to files
   populateManifest(manifestBuffer, &clienManHead);
   struct entry * curr;
-  char * serverFile;
-  int fileFD;
-  int fileSize;
   int version;
   //loop through the updates
   while(line != NULL){
@@ -593,12 +666,10 @@ int upgrade(char * projName){
       clienManHead -> prev = curr;
       clienManHead = curr;
       //then close the file descriptor
-      close(fileFD);
+      //close(fileFD);
     } else if(instruction == 'M'){
       //we would need to retrieve the file from the server and add it to the manifest
       writeFile(path);
-      //Then write that shit to the file we just opened
-      write(fileFD, serverFile, fileSize);
       //loop through to find the entry to be modified and modify it
       while(curr != NULL){
         if(strcmp(curr -> filePath, path) == 0){
@@ -628,7 +699,7 @@ int upgrade(char * projName){
 }
 
 /*This method seeks out non-existant directories and creates them*/
-void writeFile(char * path){
+int writeFile(char * path){
   /*line: holds the part of the string to append, next is used to make sure that we do not mkdir the final
   piece wich is the file, appendage string holds the parts, file size stores the number of bytes to be read
   server file holds the file that is retrieved from the server*/
@@ -636,7 +707,7 @@ void writeFile(char * path){
   char * next = strtok(NULL, "\n");
   char appendageString[PATH_MAX];
   int fileSize;
-  char * serverFile;
+  char * serverFile = NULL;
   memset(appendageString, '\0', PATH_MAX);
   DIR *myDirec;
   //loop through and get all the subdirectories
@@ -673,24 +744,31 @@ void writeFile(char * path){
   //frees and closes
   close(fileFD);
   free(serverFile);
+  return 0;
 }
 
 /*thie method takes in a manifest linked list and rewrites the manifest*/
 void rewriteManifest(struct entry * head, char * path, int version){
+  char stringVer[strMax];
+  memset(stringVer, '\0', strMax);
+  sprintf(stringVer, "%d", version);
   //first open the manifest
   int manFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //write the newest version number on the first line
-  write(manFD, &version, sizeof(int));
-  write(manFD, '\n', 1);
+  write(manFD, stringVer, strlen(stringVer));
   struct entry * curr = head;
   //loop through the linked list and write accordingly
   while(curr != NULL){
+    write(manFD, "\n", 1);
     write(manFD, curr -> filePath, strlen(curr -> filePath));
     write(manFD, " ", 1);
-    write(manFD, curr->fileHash, strlen(curr->fileHash));
+    memset(stringVer, '\0', strMax);
+    sprintf(stringVer, "%d", curr->fileVer);
+    write(manFD, stringVer, strlen(stringVer));
     write(manFD, " ", 1);
-    write(manFD, &(curr->fileVer), sizeof(int));
-    write(manFD, "\n", 1);
+    write(manFD, curr -> fileHash, hashLen);
+    write(manFD, " ", 1);
+    write(manFD, &(curr -> tag), 1);
     curr = curr -> next;
   }
 }
