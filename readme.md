@@ -11,6 +11,8 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 *Manifest project number:* Client asks for a file in the following manner **manifestVersion**, server should retrieve the manifest version from the most recent manifest and send the number.
 
+*Create:* When you need to add a new project to the repo client will ask server to create a project in the following manner **Create: Name** you need to do the checks listed in the description. Then you have to send the manifest from the server. If the project had already existed, instead of the file size, return a -1.
+
 ## Client Functions
 
 ### Update
@@ -43,5 +45,5 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 ### Add
 * [x] Prepends the project name onto the given file name
-* [ ] Checks to see if the file exists, if it does, just rewrites the existing hash and increments the file version otherwise calculates a new hash and makes the file version 1
-* [ ] Writes changes to the .Manifest
+* [x] Checks to see if the file exists, if it does, just rewrites the existing hash and increments the file version otherwise calculates a new hash and makes the file version 1
+* [x] Writes changes to the .Manifest

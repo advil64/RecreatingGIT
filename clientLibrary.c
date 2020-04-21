@@ -1,22 +1,62 @@
 #include "clientHeader.h"
 
 /*
-The configure command will save the IP address (or hostname) and port of the server for use by later
-commands. This command will not attempt a connection to the server, but insteads saves the IP and port number
-so that they are not needed as parameters for all other commands. The IP (or hostname) and port should be
-written out to a ./.configure file. All commands that need to communicate with the server should first try to get
-the address information and port from the ./.configure file and must fail if configure wasn’t run before they were
-called. All other commands must also fail if a connection to the server cannot be established.
-Note: if you can write out to an environment variable that persists between Processes, feel free to do so, but all
-recent feedback has been that security upgrades to the iLabs seem to have obviated this option.
+Create initializes (creates…) a project on both the server and client. What does this mean? The client 
+should send a message to the server stating that a new project is being created locally with <project 
+name> so the server should also initialize a new project with that name. The server is responsible for 
+creating a .Manifest file and sending it over to the client. The client just needs to setup the project 
+directory locally and store the .Manifest into it.
 */
+int create(char * projName){
 
+  //check if the given project already exists
+  DIR *myDirec = opendir(projName);
+  if(myDirec){
+    printf("The project you want to create already exists.\n");
+    closedir(myDirec);
+    return 1;
+  }
+
+  //tell the server to create the project as well
+  write(sfd, "Create:", 7);
+  write(sfd, projName, strlen(projName));
+  int fileSize = 0;
+  read(sfd, &fileSize, sizeof(int));
+  if(fileSize < 0){
+    return 1;
+  }
+  char * manFile = (char *)malloc(fileSize);
+  read(sfd, manFile, fileSize);
+
+  //set up the .Manifest files
+  char manPath[PATH_MAX];
+  memset(manPath, '\0', PATH_MAX);
+  strcat(manPath, projName);
+  strcat(manPath, "/.Manifest");
+  int manFD = open(manPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  write(manFD, manFile, strlen(manFile));
+
+  //close everything
+  close(manFD);
+  return 0;
+}
+
+/*
+The configure command will save the IP address (or hostname) and port of the server for use by later 
+commands. This command will not attempt a connection to the server, but insteads saves the IP and port 
+number so that they are not needed as parameters for all other commands. The IP (or hostname) and port 
+should be written out to a ./.configure file. All commands that need to communicate with the server 
+should first try to get the address information and port from the ./.configure file and must fail if 
+configure wasn’t run before they were called. All other commands must also fail if a connection to the 
+server cannot be established. Note: if you can write out to an environment variable that persists 
+between Processes, feel free to do so, but all recent feedback has been that security upgrades to the 
+iLabs seem to have obviated this option.
+*/
 int configure(char * myIp, char * myPort){
   //open the .configure file to write ip and port
   int confFD = open(".configure", O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //check if confFD is positive
   if(confFD < 0){
-    //unsuccessful
     return 0;
   }
   //write IP/Host to the .configure file
@@ -31,13 +71,13 @@ int configure(char * myIp, char * myPort){
 }
 
 /*
-The checkout command will fail if the project name doesn’t exist on the server, the client can't communicate
-with the server, if the project name already exists on the client side or if configure was not run on the client side.
-If it does run it will request the entire project from the server, which will send over the current version of the
-project .Manifest as well as all the files that are listed in it. The client will be responsible for receiving the
-project, creating any subdirectories under the project and putting all files in to place as well as saving the
-.Manifest.
-Note: The project is stored in the working directory once it recieves all the files from the server
+The checkout command will fail if the project name doesn’t exist on the server, the client can't 
+communicate with the server, if the project name already exists on the client side or if configure was 
+not run on the client side. If it does run it will request the entire project from the server, which will 
+send over the current version of the project .Manifest as well as all the files that are listed in it. 
+The client will be responsible for receiving the project, creating any subdirectories under the project 
+and putting all files in to place as well as saving the .Manifest. Note: The project is stored in the 
+working directory once it recieves all the files from the server
 */
 
 int checkout(char * projName){
@@ -70,10 +110,10 @@ int checkout(char * projName){
 }
 
 /*
-The add command will fail if the project does not exist on the client. The client will add an entry for the the file
-to its own .Manifest with a new version number and hashcode.
-(It is not required, but it may speed things up/make things easier for you if you add a code in the .Manifest to
-signify that this file was added locally and the server hasn't seen it yet
+The add command will fail if the project does not exist on the client. The client will add an entry for 
+the the file to its own .Manifest with a new version number and hashcode. (It is not required, but it may 
+speed things up/make things easier for you if you add a code in the .Manifest to signify that this file 
+was added locally and the server hasn't seen it yet. WE ARE GOOD BOIS
 */
 int add(char * projName, char * filePath){
 
@@ -131,7 +171,7 @@ int add(char * projName, char * filePath){
     }
     curr = curr -> next;
   }
-  
+
   //if it's not, then add it
   if(curr == NULL){
     curr  = (struct entry *)malloc(sizeof(struct entry));
@@ -186,19 +226,18 @@ int connectToServer(){
 }
 
 /*
-The update command will fail if the project name doesn’t exist on the server and if the client can not contact the
-server. The update command is rather complex since it is where lots of things are compared in order to maintain
-proper versioning. If update doesn't work correctly, almost nothing else will.
-Update's purpose is to fetch the server's .Manifest for the specified project, compare every entry in it to the
-client's .Manifest and see if there are any changes on the server side for the client. If there are, it adds a line to
-a .Update file to reflect the change and outputs some information to STDOUT to let the user know what needs to
-change/will be changed. This is done for every difference discovered. If there is an update but the user changed
-the file that needs to be updated, update should write instead to a .Conflict file and delete any .Update file (if
-there is one). If the server has no changes for the client, update can stop and does not have to do a line-by-line
-analysis of the .Manifest files, and should blank the .Update file and delete any .Conflict file (if there is one),
-since there are no server updates.
+The update command will fail if the project name doesn’t exist on the server and if the client can not 
+contact the server. The update command is rather complex since it is where lots of things are compared in 
+order to maintain proper versioning. If update doesn't work correctly, almost nothing else will. Update's 
+purpose is to fetch the server's .Manifest for the specified project, compare every entry in it to the 
+client's .Manifest and see if there are any changes on the server side for the client. If there are, it 
+adds a line to a .Update file to reflect the change and outputs some information to STDOUT to let the 
+user know what needs to change/will be changed. This is done for every difference discovered. If there is 
+an update but the user changed the file that needs to be updated, update should write instead to a 
+.Conflict file and delete any .Update file (if there is one). If the server has no changes for the client, 
+update can stop and does not have to do a line-by-line analysis of the .Manifest files, and should blank 
+the .Update file and delete any .Conflict file (if there is one), since there are no server updates.
 */
-
 int update(char * projName){
   //check if the given project exists on the client (closed)
   DIR *myDirec = opendir(projName);
