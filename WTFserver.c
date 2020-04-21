@@ -1,11 +1,15 @@
 /*importing all necessary libraries needed */
 #include <stdlib.h>
 #include <stdio.h>
+#include <dirent.h>
+#include <ctype.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <signal.h>
+#include <limits.h>
 
 struct projNode { // this is a node that holds the project name and what not
     char * projName;
