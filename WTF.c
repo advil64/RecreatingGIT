@@ -77,7 +77,7 @@ if(strcmp(argv[1], "configure") == 0){
   //call the commit method 
   if(add(argv[2], argv[3])){
     //print an error
-    printf("There was an error while adding %s to the %s project.\n", argv[2]);
+    printf("There was an error while adding %s to the %s project.\n", argv[3], argv[2]);
     exit(0);
   }
 }

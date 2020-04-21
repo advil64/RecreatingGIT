@@ -26,12 +26,14 @@
 
 #define TRUE 1
 #define FALSE 0
+#define strMax 9999
+#define hashLen 40
 
 //struct declarations, this one is for the contents of the manifest
 struct entry {
     char filePath[PATH_MAX];
     int fileVer;
-    char fileHash[SHA_DIGEST_LENGTH+1];
+    char fileHash[hashLen+1];
     char tag;
     struct entry * next;
     struct entry * prev;
@@ -60,4 +62,8 @@ int upgrade(char *);
 int commit(char *);
 void freeLL(struct entry *);
 void rewriteManifest(struct entry *, char *, int);
+int add(char *, char *);
+int connectToServer();
+int writeFile(char *);
+int connectToServer();
 #endif

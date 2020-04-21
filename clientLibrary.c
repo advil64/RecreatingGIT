@@ -76,16 +76,26 @@ to its own .Manifest with a new version number and hashcode.
 signify that this file was added locally and the server hasn't seen it yet
 */
 int add(char * projName, char * filePath){
+
   //prepend the project name to the file path
   char path[PATH_MAX];
   memset(path, '\0', PATH_MAX);
   strcat(path, projName);
   strcat(path, "/");
   strcat(path, filePath);
+
+  //checks to see if the chosen file exists to be added
   int fileFD = open(path, O_RDONLY);
+  if(fileFD < 0){
+    printf("The chosen file does not exist on the client.\n");
+    return 1;
+  }
+
+  //store the file in a buffer
   char * filebuffer;
   int len = readFile(fileFD, &filebuffer);
   close(fileFD);
+
   //populate them manifest linked lists
   char manpath[PATH_MAX];
   memset(manpath, '\0', PATH_MAX);
@@ -94,31 +104,55 @@ int add(char * projName, char * filePath){
   char * manifest;
   int manFD = open(manpath, O_RDONLY);
   readFile(manFD, &manifest);
-  int version = populateManifest(manifest, clienManHead);
+  int version = populateManifest(manifest, &clienManHead);
   close(manFD);
-  char hash[SHA_DIGEST_LENGTH];
-  SHA1((unsigned char *)filebuffer, len, hash);
+
+  //calculate and convert the hash
+  char hash[SHA_DIGEST_LENGTH+1];
+  SHA1((unsigned char *)filebuffer, len, (unsigned char *)hash);
+  hash[SHA_DIGEST_LENGTH] = '\0';
+  char hex[hashLen+1];
+  memset(hex, '\0', hashLen+1);
+  int x = 0;
+  int i = 0;
+  while(hash[x] != '\0'){
+    snprintf((char*)(hex+i),3,"%02X", hash[x]);
+    x+=1;
+    i+=2;
+  }
+
   //traverse through the linked list to check if the file is present
   struct entry * curr = clienManHead;
   while(curr != NULL){
     if(strcmp(curr -> filePath, path) == 0){
-      strcpy(curr -> fileHash, hash);
+      strcpy(curr -> fileHash, hex);
       curr -> tag = 'M';
       break;
     }
+    curr = curr -> next;
   }
+  
+  //if it's not, then add it
   if(curr == NULL){
     curr  = (struct entry *)malloc(sizeof(struct entry));
     curr -> next = clienManHead;
     curr -> prev = NULL;
+    memset(curr -> filePath, '\0', PATH_MAX);
     strcpy(curr -> filePath, path);
     curr ->fileVer = 1;
-    strcpy(curr -> fileHash, hash);
+    strcpy(curr -> fileHash, hex);
+    curr -> fileHash[hashLen] = '\0';
     curr -> tag = 'A';
-    clienManHead -> prev = curr;
+    if(clienManHead != NULL){
+      clienManHead -> prev = curr;
+    }
     clienManHead = curr;
   }
-  rewriteManifest(clienManHead, manpath, version); 
+
+  //rewrite the manifest with the new hashes and free the list
+  rewriteManifest(clienManHead, manpath, version);
+  freeLL(clienManHead);
+  return 0;
 }
 
 /* Function to connect to the server on the client side (copied from Francisco's lecture)*/
@@ -143,7 +177,7 @@ int connectToServer(){
   serverAddress.sin_family = AF_INET;
   serverAddress.sin_port = htons(port);
   bcopy((char *)result->h_addr_list[0],(char *)&serverAddress.sin_addr.s_addr, result->h_length);
-  if(connect(sfd, (struct sockaddr *)&serverAddress, sizeOf(serverAddress))){
+  if(connect(sfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress))){
     return 1;
   } else{
     printf("Client has successfully connected to the server.\n");
@@ -428,25 +462,28 @@ int insertionSort(struct entry ** toSort, int(*comparator)(char *, char *)){
 
 /*helper method to populate the manifest linked lists*/
 int populateManifest(char * buffer, struct entry ** head){
+
   //loop through the given buffer and extract the info
   struct entry * prev = NULL;
   struct entry * next = NULL;
   struct entry * curr = NULL;
+
   //this stores every line
   char * line;
   line = strtok(buffer, "\n");
   int version;
   sscanf(buffer, "%d", &version);
   line = strtok(NULL, "\n");
+
   //loop through and do repeat
   while(line != NULL){
     //allocate a new node (freed)
     struct entry * curr = (struct entry *)malloc(sizeof(struct entry));
     //memsets so that we don't run into bugs
     memset(curr -> filePath, '\0', PATH_MAX);
-    memset(curr -> fileHash, '\0', SHA_DIGEST_LENGTH+1);
+    memset(curr -> fileHash, '\0', hashLen+1);
     //now store the items in the line in their correct positions
-    sscanf(line, "%s %d %s", curr -> filePath, &(curr -> fileVer), curr -> fileHash);
+    sscanf(line, "%s %d %s %c", curr -> filePath, &(curr -> fileVer), curr -> fileHash, &(curr -> tag));
     //make curr's next equal to the next from above
     curr -> next = next;
     //make next equal curr
@@ -545,9 +582,6 @@ int upgrade(char * projName){
   //also populate the client manifests to make the changes to files
   populateManifest(manifestBuffer, &clienManHead);
   struct entry * curr;
-  char * serverFile;
-  int fileFD;
-  int fileSize;
   int version;
   //loop through the updates
   while(line != NULL){
@@ -593,12 +627,10 @@ int upgrade(char * projName){
       clienManHead -> prev = curr;
       clienManHead = curr;
       //then close the file descriptor
-      close(fileFD);
+      //close(fileFD);
     } else if(instruction == 'M'){
       //we would need to retrieve the file from the server and add it to the manifest
       writeFile(path);
-      //Then write that shit to the file we just opened
-      write(fileFD, serverFile, fileSize);
       //loop through to find the entry to be modified and modify it
       while(curr != NULL){
         if(strcmp(curr -> filePath, path) == 0){
@@ -628,7 +660,7 @@ int upgrade(char * projName){
 }
 
 /*This method seeks out non-existant directories and creates them*/
-void writeFile(char * path){
+int writeFile(char * path){
   /*line: holds the part of the string to append, next is used to make sure that we do not mkdir the final
   piece wich is the file, appendage string holds the parts, file size stores the number of bytes to be read
   server file holds the file that is retrieved from the server*/
@@ -636,7 +668,7 @@ void writeFile(char * path){
   char * next = strtok(NULL, "\n");
   char appendageString[PATH_MAX];
   int fileSize;
-  char * serverFile;
+  char * serverFile = NULL;
   memset(appendageString, '\0', PATH_MAX);
   DIR *myDirec;
   //loop through and get all the subdirectories
@@ -673,24 +705,31 @@ void writeFile(char * path){
   //frees and closes
   close(fileFD);
   free(serverFile);
+  return 0;
 }
 
 /*thie method takes in a manifest linked list and rewrites the manifest*/
 void rewriteManifest(struct entry * head, char * path, int version){
+  char stringVer[strMax];
+  memset(stringVer, '\0', strMax);
+  sprintf(stringVer, "%d", version);
   //first open the manifest
   int manFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //write the newest version number on the first line
-  write(manFD, &version, sizeof(int));
-  write(manFD, '\n', 1);
+  write(manFD, stringVer, strlen(stringVer));
   struct entry * curr = head;
   //loop through the linked list and write accordingly
   while(curr != NULL){
+    write(manFD, "\n", 1);
     write(manFD, curr -> filePath, strlen(curr -> filePath));
     write(manFD, " ", 1);
-    write(manFD, curr->fileHash, strlen(curr->fileHash));
+    memset(stringVer, '\0', strMax);
+    sprintf(stringVer, "%d", curr->fileVer);
+    write(manFD, stringVer, strlen(stringVer));
     write(manFD, " ", 1);
-    write(manFD, &(curr->fileVer), sizeof(int));
-    write(manFD, "\n", 1);
+    write(manFD, curr -> fileHash, hashLen);
+    write(manFD, " ", 1);
+    write(manFD, &(curr -> tag), 1);
     curr = curr -> next;
   }
 }
