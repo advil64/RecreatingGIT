@@ -13,6 +13,8 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 *Create:* When you need to add a new project to the repo client will ask server to create a project in the following manner **Create: Name** you need to do the checks listed in the description. Then you have to send the manifest from the server. If the project had already existed, instead of the file size, return a -1.
 
+*Destroy:* When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Destroy: Name**, then you need to follow the directions on the description.
+
 ## Client Functions
 
 ### Update

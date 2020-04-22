@@ -66,4 +66,7 @@ int add(char *, char *);
 int connectToServer();
 int writeFile(char *);
 int connectToServer();
+int removeMan(char *, char *);
+int create(char *);
+int history(char *);
 #endif
