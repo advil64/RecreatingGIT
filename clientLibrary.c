@@ -1,6 +1,17 @@
 #include "clientHeader.h"
 
 /*
+The history command will fail if the project doesn’t exist on the server or the client can not 
+communicate with it. This command does not require that the client has a copy of the project locally. 
+The server will send over a file containing the history of all operations performed on all successful 
+pushes since the project's creation. The output should be similar to the update output, but with a 
+version number and newline separating each push's log of changes.
+*/
+int history(char * projName){
+  return 0;
+}
+
+/*
 Create initializes (creates…) a project on both the server and client. What does this mean? The client 
 should send a message to the server stating that a new project is being created locally with <project 
 name> so the server should also initialize a new project with that name. The server is responsible for 
@@ -55,18 +66,68 @@ iLabs seem to have obviated this option.
 int configure(char * myIp, char * myPort){
   //open the .configure file to write ip and port
   int confFD = open(".configure", O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-  //check if confFD is positive
+  //check if you were able to open the file
   if(confFD < 0){
     return 0;
   }
   //write IP/Host to the .configure file
   write(confFD, myIp, strlen(myIp)*sizeof(char));
   write(confFD, "\n", sizeof(char));
-  //write the port number to the configure file
   write(confFD, myPort, strlen(myPort)*sizeof(char));
   //close the file descriptor
   close(confFD);
   //return 0 is it was successfull
+  return 0;
+}
+
+/*
+The remove command will fail if the project does not exist on the client. The client will remove the entry 
+for the given file from its own .Manifest.
+*/
+int removeMan(char * projName, char * filePath){
+
+  //check if the given project already exists
+  DIR *myDirec = opendir(projName);
+  if(!myDirec){
+    printf("The project that you want to remove a file from doesn't even exist lol.\n");
+    closedir(myDirec);
+    return 1;
+  }
+
+  //prepend the project name to the file path
+  char path[PATH_MAX];
+  memset(path, '\0', PATH_MAX);
+  strcat(path, projName);
+  strcat(path, "/");
+  strcat(path, filePath);
+
+  //populate them manifest linked lists
+  char manpath[PATH_MAX];
+  memset(manpath, '\0', PATH_MAX);
+  strcat(manpath, projName);
+  strcat(manpath, "/.Manifest");
+  char * manifest;
+  int manFD = open(manpath, O_RDONLY);
+  readFile(manFD, &manifest);
+  int version = populateManifest(manifest, &clienManHead);
+  close(manFD);
+
+  //find the entry in the manifest and change it
+  struct entry * curr  = clienManHead;
+  while(curr != NULL){
+    if(strcmp(curr -> filePath, path) == 0){
+      curr -> tag = 'R';
+      break;
+    }
+    curr = curr -> next;
+  }
+  if(curr == NULL){
+    printf("File is not on the manifest.\n");
+    return 1;
+  }
+  rewriteManifest(clienManHead, manpath, version);
+  freeLL(clienManHead);
+  close(sfd);
   return 0;
 }
 
@@ -79,11 +140,13 @@ The client will be responsible for receiving the project, creating any subdirect
 and putting all files in to place as well as saving the .Manifest. Note: The project is stored in the 
 working directory once it recieves all the files from the server
 */
-
 int checkout(char * projName){
+  
+  //random declarations
   int numOfFiles;
   char path[PATH_MAX];
   int i;
+
   //check if the given project already exists
   DIR *myDirec = opendir(projName);
   if(myDirec){
@@ -91,16 +154,19 @@ int checkout(char * projName){
     closedir(myDirec);
     return 1;
   }
+
   //we're good to go on the client side, we need to communicate with the server now
   printf("Attempting to connect to server...");
   if(connectToServer()){
     printf("We're having difficulties connecting to the server at the given IP address and port.\n");
     return 1;
   }
+
   //now that we connected, we need to ask server for the project
   write(sfd, "Project: ", 9);
   write(sfd, projName, strlen(projName));
   read(sfd, &numOfFiles, sizeof(int));
+
   //loop through the files and write them one by one
   for(i = 0; i < numOfFiles; i++){
     read(sfd, path, PATH_MAX);
@@ -127,7 +193,7 @@ int add(char * projName, char * filePath){
   //checks to see if the chosen file exists to be added
   int fileFD = open(path, O_RDONLY);
   if(fileFD < 0){
-    printf("The chosen file does not exist on the client.\n");
+    printf("The chosen file/project does not exist on the client.\n");
     return 1;
   }
 
@@ -165,8 +231,7 @@ int add(char * projName, char * filePath){
   struct entry * curr = clienManHead;
   while(curr != NULL){
     if(strcmp(curr -> filePath, path) == 0){
-      strcpy(curr -> fileHash, hex);
-      curr -> tag = 'M';
+      printf("The file you want to add already exists on the manifest.\n");
       break;
     }
     curr = curr -> next;
@@ -546,14 +611,15 @@ int populateManifest(char * buffer, struct entry ** head){
 
 /*
 The upgrade command will fail if the project name doesn’t exist on the server, if the server can not be
-contacted, if there is no .Update on the client side or if .Conflict exists. The client will apply the changes listed
-in the .Update to the client's local copy of the project. It will delete the entry from the client's .Manifest for all
-files tagged with a “D”, fetch from the server and then write or overwrite all files on the client side that are
-tagged with a “M” or “A”, respectively. When it is done processing all updates listed in it, the client should
-delete the .Update file. Note that the client does not make any changes to files in the the project directory that are
-not listed in the .Update. If the .Update is empty, the client need only inform the user that the project is up to
-date and delete the empty .Update file. If no .Update file exists, the client should tell the user to first do an
-update. If .Conflict exists, the client should tell the user to first resolve all conflicts and update.
+contacted, if there is no .Update on the client side or if .Conflict exists. The client will apply the 
+changes listed in the .Update to the client's local copy of the project. It will delete the entry from 
+the client's .Manifest for all files tagged with a “D”, fetch from the server and then write or overwrite 
+all files on the client side that are tagged with a “M” or “A”, respectively. When it is done processing 
+all updates listed in it, the client should delete the .Update file. Note that the client does not make 
+any changes to files in the the project directory that are not listed in the .Update. If the .Update is 
+empty, the client need only inform the user that the project is up to date and delete the empty .Update 
+file. If no .Update file exists, the client should tell the user to first do an update. If .Conflict 
+exists, the client should tell the user to first resolve all conflicts and update.
 */
 
 int upgrade(char * projName){
@@ -775,14 +841,14 @@ void rewriteManifest(struct entry * head, char * path, int version){
 
 
 /*
-The commit command will fail if the project name doesn’t exist on the server, if the server can not be contacted,
-if the client can not fetch the server's .Manifest file for the project, if the client has a .Update file that isn't empty
-(no .Update is fine) or has a .Conflict file. After fetching the server's .Manifest, the client should should first
-check to make sure that the .Manifest versions match. If they do not match, the client can stop immediatley and
-ask the user to update its local project first. If the versions match, the client should run through its own .Manifest
-and compute a live hash for each file listed in it. Every file whose live hash is different than the stord hash saved
-in the client's local .Manifest should have an entry written out to a .Commit with its file version number
-incremented.
+The commit command will fail if the project name doesn’t exist on the server, if the server can not be 
+contacted, if the client can not fetch the server's .Manifest file for the project, if the client has a 
+.Update file that isn't empty (no .Update is fine) or has a .Conflict file. After fetching the server's 
+.Manifest, the client should should first check to make sure that the .Manifest versions match. If they 
+do not match, the client can stop immediatley and ask the user to update its local project first. If the 
+versions match, the client should run through its own .Manifest and compute a live hash for each file 
+listed in it. Every file whose live hash is different than the stord hash saved in the client's local 
+.Manifest should have an entry written out to a .Commit with its file version numberincremented.
 */
 
 int commit(char * projName){
@@ -831,6 +897,7 @@ int readConf(){
   //if confd is negative, return unsuccessfull
   if(confFD < 0){
     //configure does not exist, return an error
+    printf("Could not find the configure file\n");
     return 1;
   }
   //the buffer to store the file in
