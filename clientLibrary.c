@@ -123,7 +123,7 @@ int removeMan(char * projName, char * filePath){
   struct entry * curr  = clienManHead;
   while(curr != NULL){
     if(strcmp(curr -> filePath, path) == 0){
-      curr -> tag = 'R';
+      curr -> tag = 'D';
       break;
     }
     curr = curr -> next;
@@ -933,15 +933,38 @@ int commit(char * projName){
   }
   insertionSort(&servManHead, charComparator);
   insertionSort(&clienManHead, charComparator);
+  struct entry * clienCurr = clienManHead;
+  struct entry * servCurr = servManHead;
 
   //run through the two linked lists and see if any have diff hash and version is lower
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Commit");
+  while(servCurr != NULL || clienCurr != NULL){
+    if(strcmp(servCurr -> filePath, clienCurr -> filePath) == 0){
+      if(strcmp(servCurr -> fileHash, clienCurr -> fileHash) != 0){
+        if(servCurr -> fileVer > clienCurr -> fileVer){
+          printf("Client must sync with the repository before committing changes.\n");
+          remove(checksPath);
+          return 1;
+        }
+      }
+      clienCurr = clienCurr -> next;
+      servCurr = servCurr -> next;
+    } else if(strcmp(servCurr -> filePath, clienCurr -> filePath) < 0){
+      printf("Client must sync with the repository before committing changes.\n");
+      remove(checksPath);
+      return 1;
+    } else {
+      clienCurr = clienCurr -> next;
+    }
+  }
 
   //run through the client manifest and create the .commit
   memset(checksPath, '\0', PATH_MAX);
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Commit");
   int comFD = open(checksPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-  struct entry * clienCurr = clienManHead;
   char hash[SHA_DIGEST_LENGTH+1];
   hash[SHA_DIGEST_LENGTH] = '\0';
   char hex[hashLen+1];
@@ -969,7 +992,7 @@ int commit(char * projName){
       fileFD = open(clienCurr -> filePath, O_RDONLY);
       len = readFile(fileFD, &currFile);
       SHA1((unsigned char *)currFile, len, (unsigned char *)hash);
-      while(hash[x] != '\0'){
+      while(x < SHA_DIGEST_LENGTH){
         snprintf((char*)(hex+i),3,"%02X", hash[x]);
         x+=1;
         i+=2;
