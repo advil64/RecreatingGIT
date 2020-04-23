@@ -26,20 +26,28 @@ int main (int argc, char ** argv) {
     memset(nameTbl, 0x0, 256 * sizeof(struct projNode *)); // setting everything in the hashtable to NULL
     int lsocket; // declaring the file descriptor for our listening (server) socket
     int csocket; // declaring the file descriptor from the respective client socket
+    int caddysize;
+    int portnum = atoi(argv[1]);
     char crequest[1000]; // get requests from clients!
     char manSuc[2] = {'1', '\0'};
     char manFail[3] = {'-','1','\0'};
+    char sCon[7] = {'f', 'u', 'c', 'k', ' ', 'u', '\0'};
     memset(crequest, '\0', 1000);
     lsocket = socket(AF_INET, SOCK_STREAM, 0); // creating the socket
     /* stuff that comprises the server addy */
     struct sockaddr_in serveraddy;
+    struct sockaddr_in clientaddy;
+    caddysize = sizeof(clientaddy);
+    bzero((char*) &serveraddy, sizeof(serveraddy));
     serveraddy.sin_family = AF_INET;
-    serveraddy.sin_port = atoi(argv[1]); // port number must be taken from command line
+    serveraddy.sin_port = htons(portnum); // port number must be taken from command line
     serveraddy.sin_addr.s_addr = INADDR_ANY;
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
-    listen(lsocket, 10); // has 10 clients on backlog
-    csocket = accept(lsocket, NULL, NULL); // setting info to NULL rn
+    listen(lsocket, 0); // has 0 clients on backlog
+    csocket = accept(lsocket, (struct sockaddr *) &clientaddy, &caddysize); // setting info to NULL rn
+    send(csocket, sCon, sizeof(sCon), 0);
     recv(csocket, &crequest, sizeof(crequest), 0);
+    printf("The client has requested the server to: %s", crequest);
     if (crequest[1] == 'r') { // this means you know you have to create something
       char projName[100];
       int count = 7;
