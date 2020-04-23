@@ -5,15 +5,17 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 ### Requests From Client
 
-*Project:* Client asks for a project in the following manner **Project: Name**, Server should first write the number of files to expect. Then server should give all the files in the project by using the following protocol. First send the path of each file, then just follow normal protocol for sending a file.
+*Project:* Client asks for a project in the following manner **Proj: Name**, Server should first write the number of files to expect. Then server should give all the files in the project by using the following protocol. First send the path of each file, then just follow normal protocol for sending a file.
 
-*File:* Client asks for a file in the following manner **File: Path**, server should first send the number of bytes in the requested file, then send the file itself.
+*File:* Client asks for a file in the following manner **File:Path**, server should first send the number of bytes in the requested file, then send the file itself. If the file does not exist, send -1 instead of the fileSize.
 
-*Manifest project number:* Client asks for a file in the following manner **manifestVersion**, server should retrieve the manifest version from the most recent manifest and send the number.
+*Manifest project number:* Client asks for a file in the following manner **manV:**, server should retrieve the manifest version from the most recent manifest and send the number.
 
-*Create:* When you need to add a new project to the repo client will ask server to create a project in the following manner **Create: Name** you need to do the checks listed in the description. Then you have to send the manifest from the server. If the project had already existed, instead of the file size, return a -1.
+*Create:* When you need to add a new project to the repo client will ask server to create a project in the following manner **Crea: Name** you need to do the checks listed in the description. Send back a 1 if the project did not exist before and has been successfully created, otherwise send a -1 if the project had already existed.
 
-*Destroy:* When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Destroy: Name**, then you need to follow the directions on the description.
+*Destroy:* When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest: Name**, then you need to follow the directions on the description.
+
+*Check:* This command is merely to see if a given project exists on the server. The client will will ask the following **Chec: Name** and the server should return a 1 is the project exists and a -1 if the project does not exist.
 
 ## Client Functions
 

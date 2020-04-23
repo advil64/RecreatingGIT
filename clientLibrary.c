@@ -27,17 +27,23 @@ int create(char * projName){
     closedir(myDirec);
     return 1;
   }
-
-  //tell the server to create the project as well
-  write(sfd, "Create:", 7);
-  write(sfd, projName, strlen(projName));
-  int fileSize = 0;
-  read(sfd, &fileSize, sizeof(int));
-  if(fileSize < 0){
+  if(connectToServer){
     return 1;
   }
-  char * manFile = (char *)malloc(fileSize);
-  read(sfd, manFile, fileSize);
+
+  //tell the server to create the project as well
+  send(sfd, "Crea:", 5, 0);
+  send(sfd, (char *)strlen(projName), sizeof(int), 0);
+  send(sfd, projName, strlen(projName), 0);
+  int fileVer = 0;
+  recv(sfd, &fileVer, sizeof(int), 0);
+  if(fileVer < 0){
+    printf("Project already exists on the server.\n");
+    return 1;
+  }
+  char * manFile = (char *)malloc(4);
+  memset(manFile, '\0', 4);
+  sprintf(manFile, "%d", fileVer);
 
   //set up the .Manifest files
   char manPath[PATH_MAX];
@@ -853,13 +859,134 @@ listed in it. Every file whose live hash is different than the stord hash saved 
 
 int commit(char * projName){
   //call the read configure file to find the IP and port
-  if(readConf()){
-    //if it failed print the error
+  if(connectToServer()){
     printf("Please configure your client with a port and IP first.\n");
-    //return unsuccessfull
     return 1;
   }
-  //TODO: finish the rest of this function
+  
+  //Fail checks
+  int servStat = 0;
+  send(sfd, "Chec:", 5, 0);
+  send(sfd, projName, strlen(projName), 0);
+  recieve(sfd, &servStat, sizeof(int), 0);
+  if(recieve < 0){
+    printf("Project does not exist on the server.\n");
+    return 1;
+  }
+
+  //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
+  char checksPath[PATH_MAX];
+  char * servMan;
+  int servManSize;
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Manifest");
+  send(sfd, "File:", 5, 0);
+  send(sfd, checksPath, strlen(checksPath), 0);
+  recv(sfd, &servManSize, sizeof(int), 0);
+  if(servManSize < 0){
+    printf("The project you are looking for does not exist.\n");
+    return 1;
+  }
+  servMan = (char *)malloc((servManSize+1)*sizeof(char));
+  recv(sfd, servMan, servManSize, 0);
+  servMan[servManSize] = '\0';
+
+  //more fail checks
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Update");
+  char * updateBuff;
+  int updateFD = open(checksPath, O_RDONLY);
+  int size = readFile(updateFD, &updateBuff);
+  if(size != 0){
+    printf("Please finish your updates first, then you can commit the project.\n");
+    close(updateFD);
+    free(updateBuff);
+    return 1;
+  }
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Conflict");
+  int confFD = open(checksPath, O_RDONLY);
+  if(confFD > 0){
+    printf("Please resolve ALL conflicts before progressing.\n");
+    close(confFD);
+  }
+
+  //now get the manifest from the client
+  char * clientMan;
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Manifest");
+  int manFD = open(checksPath, O_RDONLY);
+  readFile(manFD, &clientMan);
+
+  //populate the linked lists and get the versions
+  int clientProjVer = populateManifest(clientMan, &clienManHead);
+  int servProjVer = populateManifest(servMan, &servManHead);
+  if(clientProjVer != servProjVer){
+    printf("Please update your local project before proceeding.\n");
+    return 1;
+  }
+  insertionSort(&servManHead, charComparator);
+  insertionSort(&clienManHead, charComparator);
+
+  //run through the two linked lists and see if any have diff hash and version is lower
+
+  //run through the client manifest and create the .commit
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Commit");
+  int comFD = open(checksPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  struct entry * clienCurr = clienManHead;
+  char hash[SHA_DIGEST_LENGTH+1];
+  hash[SHA_DIGEST_LENGTH] = '\0';
+  char hex[hashLen+1];
+  int fileFD;
+  char * currFile;
+  int len;
+  int x = 0;
+  int i = 0;
+  while(clienCurr != NULL){
+    memset(hash, '\0', SHA_DIGEST_LENGTH);
+    memset(hex, '\0', hashLen+1);
+    i = 0;
+    x = 0;
+    if(clienCurr -> tag == 'A' || clienCurr -> tag == 'D'){
+      write(comFD, &(clienCurr -> tag), 1);
+      write(comFD, " ", 1);
+      write(comFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
+      write(comFD, " ", 1);
+      write(comFD, clienCurr -> fileHash, hashLen+1);
+      write(comFD, " ", 1);
+      write(updateFD, &(clienCurr->fileVer), sizeof(int));
+      write(comFD, "\n", 1);
+      printf("%c %s", clienCurr -> tag, clienCurr -> filePath);
+    } else{
+      fileFD = open(clienCurr -> filePath, O_RDONLY);
+      len = readFile(fileFD, &currFile);
+      SHA1((unsigned char *)currFile, len, (unsigned char *)hash);
+      while(hash[x] != '\0'){
+        snprintf((char*)(hex+i),3,"%02X", hash[x]);
+        x+=1;
+        i+=2;
+      }
+      if(strcmp(hex, clienCurr -> fileHash) != 0){
+        write(comFD, "M", 1);
+        write(comFD, " ", 1);
+        write(comFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
+        write(comFD, " ", 1);
+        write(comFD, hex, hashLen+1);
+        write(comFD, " ", 1);
+        clienCurr->fileVer++;
+        write(updateFD, &(clienCurr->fileVer), sizeof(int));
+        write(comFD, "\n", 1);
+        printf("%c %s", 'M', clienCurr -> filePath);
+      }
+    }
+  }
+
   return 0;
 }
 
