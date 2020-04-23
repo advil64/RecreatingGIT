@@ -34,7 +34,7 @@ int main (int argc, char ** argv) {
     /* stuff that comprises the server addy */
     struct sockaddr_in serveraddy;
     serveraddy.sin_family = AF_INET;
-    serveraddy.sin_port = (int) argv[1]; // port number must be taken from command line
+    serveraddy.sin_port = atoi(argv[1]); // port number must be taken from command line
     serveraddy.sin_addr.s_addr = INADDR_ANY;
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
     listen(lsocket, 10); // has 10 clients on backlog
@@ -65,7 +65,6 @@ int main (int argc, char ** argv) {
 int creator (char * name) { // will see if the name of the project is there or not, whatever
     int sum = 0;
     int k;
-    int mfd; // manifest file descriptor
     char manPath[PATH_MAX];
     memset(manPath, '\0', PATH_MAX);
     strcpy(manPath, name);
@@ -83,7 +82,7 @@ int creator (char * name) { // will see if the name of the project is there or n
         newNode -> next = NULL;
         nameTbl[index] = newNode;
         mkdir(name, S_IRWXU); // makes the directory
-        mfd = open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
+        open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
         return 1;
     }
     else { // this means that the index isnt empty, however 2 proj names may hash to same index in a linked list
@@ -101,7 +100,7 @@ int creator (char * name) { // will see if the name of the project is there or n
         temp -> projName = name;
         temp -> next = NULL;
         mkdir(name, S_IRWXU); // makes the directory
-        mfd = open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
+        open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
         return 1;
     }
 }
