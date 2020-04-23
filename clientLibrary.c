@@ -27,7 +27,8 @@ int create(char * projName){
     closedir(myDirec);
     return 1;
   }
-  if(connectToServer){
+  if(connectToServer()){
+    printf("Unable to connect to the configured IP address and Port number.\n");
     return 1;
   }
 
@@ -227,7 +228,7 @@ int add(char * projName, char * filePath){
   memset(hex, '\0', hashLen+1);
   int x = 0;
   int i = 0;
-  while(hash[x] != '\0'){
+  while(x < SHA_DIGEST_LENGTH){
     snprintf((char*)(hex+i),3,"%02X", hash[x]);
     x+=1;
     i+=2;
@@ -294,6 +295,7 @@ int connectToServer(){
     printf("Client has successfully connected to the server.\n");
     return 0;
   }
+  return 0;
 }
 
 /*
@@ -868,8 +870,8 @@ int commit(char * projName){
   int servStat = 0;
   send(sfd, "Chec:", 5, 0);
   send(sfd, projName, strlen(projName), 0);
-  recieve(sfd, &servStat, sizeof(int), 0);
-  if(recieve < 0){
+  recv(sfd, &servStat, sizeof(int), 0);
+  if(servStat < 0){
     printf("Project does not exist on the server.\n");
     return 1;
   }
