@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <unistd.h>
 #include <string.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -45,7 +46,7 @@ int main (int argc, char ** argv) {
     serveraddy.sin_addr.s_addr = INADDR_ANY;
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
     listen(lsocket, 0); // has 0 clients on backlog
-    csocket = accept(lsocket, (struct sockaddr *) &clientaddy, &caddysize); // setting info to NULL rn
+    csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize); // setting info to NULL rn
     send(csocket, sCon, sizeof(sCon), 0);
     recv(csocket, &crequest, sizeof(crequest), 0);
     printf("The client has requested the server to: %s", crequest);
@@ -65,10 +66,11 @@ int main (int argc, char ** argv) {
     else if(crequest[0] == 'F') { // FILE:Path command
       int numBytes; // the number of bytes in a file
       char pathName[PATH_MAX]; // the path where the file to be opened resides
-      char * fileBuf; // storing bytes in a file
+      char * fileBuf = NULL; // storing bytes in a file
       recv(csocket, &pathName, sizeof(pathName), 0);
       numBytes = fyleBiter(pathName, fileBuf);
-      char * nBytes = itoa(numBytes);
+      char nBytes[20];
+      sprintf(nBytes, "%d", numBytes);
       send(csocket,nBytes, sizeof(nBytes), 0);
       send(csocket, fileBuf, sizeof(fileBuf), 0);
     }
