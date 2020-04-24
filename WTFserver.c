@@ -26,7 +26,7 @@ int main (int argc, char ** argv) {
     memset(nameTbl, 0x0, 256 * sizeof(struct projNode *)); // setting everything in the hashtable to NULL
     int lsocket; // declaring the file descriptor for our listening (server) socket
     int csocket; // declaring the file descriptor from the respective client socket
-    int caddysize;
+    int caddysize = -1;
     int portnum = atoi(argv[1]);
     char crequest[1000]; // get requests from clients!
     char manSuc[2] = {'1', '\0'};
