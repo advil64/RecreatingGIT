@@ -312,62 +312,74 @@ update can stop and does not have to do a line-by-line analysis of the .Manifest
 the .Update file and delete any .Conflict file (if there is one), since there are no server updates.
 */
 int update(char * projName){
+
   //check if the given project exists on the client (closed)
   DIR *myDirec = opendir(projName);
   if(!myDirec){
     printf("The project you want does not exist.\n");
     return 1;
   }
+
   //this method connects to the server at the given IP address and populates the global hostent
   if(connectToServer()){
     printf("We're having difficulties connecting to the server at the given IP address and port.\n");
     return 1;
   }
+
+  //random declarations
   int servManSize;
   char * servMan;
   char * clientMan;
   int clientProjVer;
   int servProjVer;
+  int x = 0;
+  int i = 0;
+
   //given the project name, we need to create a path to the manifest
-  char manPath[PATH_MAX];
-  memset(manPath, '\0', PATH_MAX);
-  strcpy(manPath, projName);
-  strcat(manPath, "/.Manifest");
-  //we need to get the .manifest file in the directory (closed)
-  int manFD = open(manPath, O_RDONLY);
+  char checksPath[PATH_MAX];
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Manifest");
+  int manFD = open(checksPath, O_RDONLY);
+
   //if manFD is negative, return unsuccessfull
   if(manFD < 0){
-    printf("Manifest does not exist within the project.\n");
+    printf("Manifest does not exist within the client's project.\n");
     close(sfd);
+    closedir(myDirec);
     return 1;
   }
-  //pass in the client man to be populated 
+
+  //pass in the client manifest to be populated 
   readFile(manFD, &clientMan);
+
   //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
-  write(sfd, "File: ", 6);
-  write(sfd, manPath, strlen(manPath));
-  read(sfd, &servManSize, sizeof(int));
+  send(sfd, "File:", 5, 0);
+  send(sfd, checksPath, strlen(checksPath), 0);
+  recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
     printf("The project you are looking for does not exist.\n");
     return 1;
   }
   servMan = (char *)malloc((servManSize+1)*sizeof(char));
-  read(sfd, servMan, servManSize);
+  recv(sfd, servMan, servManSize, 0);
   servMan[servManSize] = '\0';
+  
   /* clientman -> holds client's manifest... servman -> holds server's manifest now compare the two
   .Manifest outline <project version> (once) <path> <file version> <hash> (for each file)
   first check if the project version is the same then create the update and conflict accordingly*/
   sscanf(clientMan, "%d\n", &clientProjVer);
   sscanf(servMan, "%d\n", &servProjVer);
-  memset(manPath, '\0', PATH_MAX);
-  strcpy(manPath, projName);
-  strcat(manPath, "/.Update");
-  int updateFD = open(manPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-  memset(manPath, '\0', PATH_MAX);
-  strcpy(manPath, projName);
-  strcat(manPath, "/.Conflict");
-  int conflictFD = open(manPath, O_APPEND | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Update");
+  int updateFD = open(checksPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Conflict");
+  int conflictFD = open(checksPath, O_APPEND | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   int hasConflict = FALSE;
+
   //if they are the same, then update is done
   if(clientProjVer == servProjVer){
     printf("Up To Date");
@@ -382,25 +394,32 @@ int update(char * projName){
     struct entry * clienCurr = clienManHead;
     //this stores the new hash to check for conflicts
     unsigned char hash[SHA_DIGEST_LENGTH+1];
+    char hex[hashLen+1];
     //for each entry in the server manifest, loop through the client manifest
     while(servCurr != NULL || clienCurr != NULL){
       //find the corresponding entry in the client
       if(strcmp(servCurr ->filePath, clienCurr ->filePath) == 0){
         //memset before we do anything with the hash
         memset(hash, '\0', SHA_DIGEST_LENGTH+1);
+        memset(hex, '\0', hashLen+1);
+        i = 0;
+        x = 0;
         //to check for conflicts, first calculate the sha1 of the file in the client
         SHA1((unsigned char *)clientMan, strlen(clientMan), hash);
+        while(x < SHA_DIGEST_LENGTH){
+          snprintf((char*)(hex+i),3,"%02X", hash[x]);
+          x+=1;
+          i+=2;
+        }
         //then check if the client and server hashes are the same
         if(strcmp(clienCurr ->fileHash, servCurr ->fileHash) != 0){
           //check if the client hash is also up to date
-          if(strcmp((char *)hash, clienCurr -> fileHash) == 0){
+          if(strcmp((char *)hex, clienCurr -> fileHash) == 0){
             //we need to modify the file on the client side
             write(updateFD, "M ", 2);
             write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
             write(updateFD, " ", 1);
             write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
-            write(updateFD, " ", 1);
-            write(updateFD, &(servCurr->fileVer), sizeof(int));
             write(updateFD, "\n", 1);
             printf("M %s", servCurr -> filePath);
           } else{
@@ -424,8 +443,6 @@ int update(char * projName){
         write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
         write(updateFD, " ", 1);
         write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
-        write(updateFD, " ", 1);
-        write(updateFD, &(servCurr->fileVer), sizeof(int));
         write(updateFD, "\n", 1);
         //print the appendage to terminal
         printf("A %s", servCurr -> filePath);
@@ -438,8 +455,6 @@ int update(char * projName){
         write(updateFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
         write(updateFD, " ", 1);
         write(updateFD, clienCurr->fileHash, strlen(clienCurr->fileHash));
-        write(updateFD, " ", 1);
-        write(updateFD, &(servCurr->fileVer), sizeof(int));
         write(updateFD, "\n", 1);
         //print the deletion to terminal
         printf("D %s", clienCurr -> filePath);
@@ -447,10 +462,39 @@ int update(char * projName){
         clienCurr = clienCurr -> next;
       }
     }
+    //we have reached the end of ONE of the linked lists, finish it off
+    if(clienCurr != NULL && servCurr == NULL){
+      while(clienCurr != NULL){
+        //delete all of them
+        write(updateFD, "D ", 2);
+        write(updateFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
+        write(updateFD, " ", 1);
+        write(updateFD, clienCurr->fileHash, strlen(clienCurr->fileHash));
+        write(updateFD, "\n", 1);
+        //print the deletion to terminal
+        printf("D %s", clienCurr -> filePath);
+        //we increment only the server pointer
+        clienCurr = clienCurr -> next;
+      }
+    } else {
+      while(servCurr != NULL){
+        //server has a file that client does not have, we need to add the file to client
+        //this seems to be a new file write to the update fd
+        write(updateFD, "A ", 2);
+        write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
+        write(updateFD, " ", 1);
+        write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
+        write(updateFD, "\n", 1);
+        //print the appendage to terminal
+        printf("A %s", servCurr -> filePath);
+        //we increment only the client pointer
+        servCurr = servCurr -> next;
+      }
+    }
   }
   //check for conflicts
   if(!hasConflict){
-    remove(manPath);
+    remove(checksPath);
   }
   //free the buffers
   free(clientMan);
@@ -631,38 +675,39 @@ exists, the client should tell the user to first resolve all conflicts and updat
 */
 
 int upgrade(char * projName){
-  int newVersionNumber;
-  //given the project name, we need to create a path to the manifest
-  char manPath[PATH_MAX];
-  memset(manPath, '\0', PATH_MAX);
-  strcpy(manPath, projName);
-  strcat(manPath, "/.Conflict");
-  //check to see if a .conflict file exists
-  int conflictFD = open(manPath, O_RDONLY);
+
+  //carry out the checks (see if conflicts exist)
+  char checksPath[PATH_MAX];
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Conflict");
+  int conflictFD = open(checksPath, O_RDONLY);
   if(conflictFD > 0){
     printf("Please resolve conflicts before continuing.\n");
     close(conflictFD);
     return 1;
   }
+
   //this method connects to the server at the given IP address and populates the global hostent
   if(connectToServer()){
     printf("We're having difficulties connecting to the server at the given IP address and port.\n");
     return 1;
   }
-  //get the version number from the server
-  write(sfd, "manifestVersion", 16);
-  read(sfd, &newVersionNumber, sizeof(int));
+
   //path to the .update file
-  memset(manPath, '\0', PATH_MAX);
-  strcpy(manPath, projName);
-  strcat(manPath, "/.Update");
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Update");
   //check to see if a .update file exists on the client side
-  int updateFD = open(manPath, O_RDONLY);
+  int updateFD = open(checksPath, O_RDONLY);
   //if confd is negative, return unsuccessfull
   if(updateFD < 0){
     printf("There are no updates at this time, please try again later.\n");
+    close(updateFD);
+    close(sfd);
     return 1;
   }
+
   //buffer to store the update file
   char * updates;
   //read in the update file
@@ -670,104 +715,40 @@ int upgrade(char * projName){
   //check if there are any updates
   if(updateBytes == 0){
     printf("There are no updates at this time, please try again later.\n");
-    remove(manPath);
+    remove(checksPath);
     return 1;
   }
   //tokenize through the updates
   char * line;
   line = strtok(updates, "\n");
+  char hash[hashLen+1];
+  memset(hash, '\0', hashLen+1);
   //store the instructions
   char instruction;
-  char path[PATH_MAX];
-  char hash[SHA_DIGEST_LENGTH+1];
-  //memset those things to prevent bugs
-  memset(path, '\0', PATH_MAX);
-  memset(hash, '\0', SHA_DIGEST_LENGTH+1);
-  //path to the manifest
-  memset(manPath, '\0', PATH_MAX);
-  strcpy(manPath, projName);
-  strcat(manPath, "/.Manifest");
-  //open the .Manifest file and read it
-  int manFD = open(manPath, O_RDONLY);
-  //read the file
-  char * manifestBuffer;
-  readFile(manFD, &manifestBuffer);
-  //also populate the client manifests to make the changes to files
-  populateManifest(manifestBuffer, &clienManHead);
-  struct entry * curr;
-  int version;
   //loop through the updates
   while(line != NULL){
-    //curr starts off at the head
-    curr = clienManHead;
     //read each line
-    sscanf(line, "%c %s %s %d", &instruction, path, hash, &version);
-    //first check for deletions
-    if(instruction == 'D'){
-      //find that node in the client linked list
-      while(curr != NULL){
-        //check if the path matches
-        if(strcmp(curr -> filePath, path) == 0){
-          //edge cases
-          if(curr -> prev == NULL && curr -> next == NULL){
-            clienManHead = NULL;
-          } else if(curr -> prev == NULL && curr -> next != NULL){
-            clienManHead = curr -> next;
-            clienManHead -> prev = NULL;
-          } else if(curr -> prev != NULL && curr -> next == NULL){
-            curr -> prev -> next = NULL;
-          } else{
-            curr -> prev -> next = curr -> next;
-            curr -> next -> prev = curr -> prev;
-          }
-          free(curr);
-          //now delete the selected file
-          //remove(path); ask professor about this line
-          break;
-        }
-        curr = curr -> next;
-      }
-    } else if(instruction == 'A'){
+    sscanf(line, "%c %s %s", &instruction, checksPath, hash);
+    //we only really care about aditions and modifications
+    if(instruction == 'A' || instruction == 'M'){
       //we need to write the file at the path in the client
-      writeFile(path);
-      //now we add a new node to the client linked list
-      curr  = (struct entry *)malloc(sizeof(struct entry));
-      curr -> next = clienManHead;
-      curr -> prev = NULL;
-      strcpy(curr -> filePath, path);
-      curr ->fileVer = version;
-      strcpy(curr -> fileHash, hash);
-      clienManHead -> prev = curr;
-      clienManHead = curr;
-      //then close the file descriptor
-      //close(fileFD);
-    } else if(instruction == 'M'){
-      //we would need to retrieve the file from the server and add it to the manifest
-      writeFile(path);
-      //loop through to find the entry to be modified and modify it
-      while(curr != NULL){
-        if(strcmp(curr -> filePath, path) == 0){
-          curr -> fileVer = version;
-          strcpy(curr -> fileHash, hash);
-          break;
-        }
-        curr = curr -> next;
-      }
+      writeFile(checksPath);
     }
   }
-  rewriteManifest(clienManHead, manPath, newVersionNumber);
   //now we remove the .Update file from the client
-  memset(manPath, '\0', PATH_MAX);
-  strcpy(manPath, projName);
-  strcat(manPath, "/.Update");
-  remove(manPath);
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Update");
+  remove(checksPath);
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Manifest");
+  writeFile(checksPath);
   //close the files
   close(updateFD);
-  close(manFD);
   close(sfd);
   //free the buffer
   free(updates);
-  free(manifestBuffer);
   freeLL(clienManHead);
   return 0;
 }
@@ -804,15 +785,15 @@ int writeFile(char * path){
   //we would need to retrieve the file from the server and add it to the manifest
   int fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //follow protocol to retrieve the selected file from the server
-  write(sfd, "File: ", 6);
-  write(sfd, path, strlen(path));
-  read(sfd, &fileSize, sizeof(int));
+  send(sfd, "File:", 5, 0);
+  send(sfd, path, strlen(path), 0);
+  recv(sfd, &fileSize, sizeof(int), 0);
   if(fileSize < 0){
     printf("The project/file you are looking for does not exist.\n");
     return 1;
   }
   serverFile = (char *)malloc((fileSize+1)*sizeof(char));
-  read(sfd, serverFile, fileSize);
+  recv(sfd, serverFile, fileSize, 0);
   serverFile[fileSize] = '\0';
   write(fileFD, serverFile, fileSize);
   //frees and closes
