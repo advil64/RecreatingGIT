@@ -34,7 +34,6 @@ int create(char * projName){
 
   //tell the server to create the project as well
   send(sfd, "Crea:", 5, 0);
-  send(sfd, (char *)strlen(projName), sizeof(int), 0);
   send(sfd, projName, strlen(projName), 0);
   int fileVer = 0;
   recv(sfd, &fileVer, sizeof(int), 0);
@@ -269,6 +268,7 @@ int add(char * projName, char * filePath){
 
 /* Function to connect to the server on the client side (copied from Francisco's lecture)*/
 int connectToServer(){
+  char message[7];
   //call the read configure file to find the IP and port
   if(readConf()){
     printf("Please configure your client with a port and IP first.\n");
@@ -293,6 +293,8 @@ int connectToServer(){
     return 1;
   } else{
     printf("Client has successfully connected to the server.\n");
+    recv(sfd, message, 7, 0);
+    printf("%s", message);
     return 0;
   }
   return 0;
@@ -377,7 +379,7 @@ int update(char * projName){
   memset(checksPath, '\0', PATH_MAX);
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Conflict");
-  int conflictFD = open(checksPath, O_APPEND | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  int conflictFD = open(checksPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   int hasConflict = FALSE;
 
   //if they are the same, then update is done
@@ -682,7 +684,9 @@ int upgrade(char * projName){
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Conflict");
   int conflictFD = open(checksPath, O_RDONLY);
-  if(conflictFD > 0){
+  char * conflicts;
+  int confs = readFile(conflictFD, &conflicts);
+  if(conflictFD > 0 || confs != 0){
     printf("Please resolve conflicts before continuing.\n");
     close(conflictFD);
     return 1;
@@ -798,6 +802,7 @@ int writeFile(char * path){
   write(fileFD, serverFile, fileSize);
   //frees and closes
   close(fileFD);
+  close(sfd);
   free(serverFile);
   return 0;
 }
@@ -846,16 +851,6 @@ int commit(char * projName){
     printf("Please configure your client with a port and IP first.\n");
     return 1;
   }
-  
-  //Fail checks
-  int servStat = 0;
-  send(sfd, "Chec:", 5, 0);
-  send(sfd, projName, strlen(projName), 0);
-  recv(sfd, &servStat, sizeof(int), 0);
-  if(servStat < 0){
-    printf("Project does not exist on the server.\n");
-    return 1;
-  }
 
   //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
   char checksPath[PATH_MAX];
@@ -885,7 +880,6 @@ int commit(char * projName){
   if(size != 0){
     printf("Please finish your updates first, then you can commit the project.\n");
     close(updateFD);
-    free(updateBuff);
     return 1;
   }
   memset(checksPath, '\0', PATH_MAX);
@@ -909,7 +903,7 @@ int commit(char * projName){
   int clientProjVer = populateManifest(clientMan, &clienManHead);
   int servProjVer = populateManifest(servMan, &servManHead);
   if(clientProjVer != servProjVer){
-    printf("Please update your local project before proceeding.\n");
+    printf("Please update/upgrade your local project before proceeding.\n");
     return 1;
   }
   insertionSort(&servManHead, charComparator);
