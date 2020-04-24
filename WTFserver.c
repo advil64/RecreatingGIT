@@ -30,11 +30,11 @@ int main (int argc, char ** argv) {
     int csocket; // declaring the file descriptor from the respective client socket
     int caddysize = -1;
     int portnum = atoi(argv[1]);
-    char crequest[1000]; // get requests from clients!
-    char manSuc[2] = {'1', '\0'};
-    char manFail[3] = {'-','1','\0'};
+    char crequest[6]; // get requests from clients!
+    int manSuc = 1;
+    int manFail = -1;
     char sCon[7] = {'f', 'u', 'c', 'k', ' ', 'u', '\0'};
-    memset(crequest, '\0', 1000);
+    memset(crequest, '\0', 6);
     lsocket = socket(AF_INET, SOCK_STREAM, 0); // creating the socket
     /* stuff that comprises the server addy */
     struct sockaddr_in serveraddy;
@@ -57,10 +57,10 @@ int main (int argc, char ** argv) {
       recv(csocket, &projName, sizeof(projName), 0);
       creRet = creator(projName);
       if (creRet == 1) { // the file was created successfully
-        send(csocket, manSuc, sizeof(manSuc), 0); // send 1 to the client
+        send(csocket, &manSuc, sizeof(int), 0); // send 1 to the client
       }
       else { // file already existed yo
-        send(csocket, manFail, sizeof(manFail), 0);
+        send(csocket, &manFail, sizeof(int), 0);
       }
     }
     else if(crequest[0] == 'F') { // FILE:Path command
