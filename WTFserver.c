@@ -18,6 +18,7 @@ struct projNode { // this is a node that holds the project name and what not
 };
 
 int creator (char * name);
+int fyleBiter (char * path, char * buffer);
 int mkdir(const char * pathname, mode_t mode);
 
 struct projNode * nameTbl[256]; // hashtable that holds all project names, easy O(1) access
@@ -48,24 +49,29 @@ int main (int argc, char ** argv) {
     send(csocket, sCon, sizeof(sCon), 0);
     recv(csocket, &crequest, sizeof(crequest), 0);
     printf("The client has requested the server to: %s", crequest);
-    if (crequest[1] == 'r') { // this means you know you have to create something
-      char projName[100];
-      int count = 7;
+    if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
+      char projName[PATH_MAX];
       int creRet; // what creator returns!
-      memset(projName, '\0', 100);
-      while(crequest[count] != '\0') { // this will put the future project name into its own string
-        projName[count - 7] = crequest[count];
-        count++;
-      }
+      memset(projName, '\0', PATH_MAX);
+      recv(csocket, &projName, sizeof(projName), 0);
       creRet = creator(projName);
       if (creRet == 1) { // the file was created successfully
         send(csocket, manSuc, sizeof(manSuc), 0); // send 1 to the client
       }
-      else {
+      else { // file already existed yo
         send(csocket, manFail, sizeof(manFail), 0);
       }
     }
-
+    else if(crequest[0] == 'F') { // FILE:Path command
+      int numBytes; // the number of bytes in a file
+      char pathName[PATH_MAX]; // the path where the file to be opened resides
+      char * fileBuf; // storing bytes in a file
+      recv(csocket, &pathName, sizeof(pathName), 0);
+      numBytes = fyleBiter(pathName, fileBuf);
+      char * nBytes = itoa(numBytes);
+      send(csocket,nBytes, sizeof(nBytes), 0);
+      send(csocket, fileBuf, sizeof(fileBuf), 0);
+    }
     return 0;
 }
 
@@ -111,6 +117,47 @@ int creator (char * name) { // will see if the name of the project is there or n
         open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
         return 1;
     }
+}
+
+int fyleBiter (char * path, char * buffer) { // given a file path, it will find how many bytes are within a file!!
+  int fd; // file descriptor for the file we wanna read
+  int buffsize = 100;
+  buffer = (char*) malloc(101 * sizeof(char));
+  char * temp; // temporary buffer
+  memset(buffer, '\0', 101);
+  fd = open(path, O_RDONLY); // opening the file given the path name with read only permission
+  int status = 1;
+  int readIN = 0;
+   while(status > 0){ 
+    //read buff size number of chars and store in myBuffer
+    do{
+      status = read(fd, buffer+readIN, 100);
+      readIN += status;
+    }while(readIN < buffsize && status > 0);
+    //check if there are more chars left
+    if(status > 0){
+      //increase the array size by 100
+      buffsize += 100;
+      //store the old values in the temp pointer
+      temp = buffer;
+      //malloc the new array to myBuffer
+      buffer = (char *)malloc(buffsize*sizeof(char));
+      //check if the pointer is null
+      if(buffer == NULL){
+        //print an error
+        printf("ERROR: Not enough space on heap\n");
+        //exit
+        return -1;
+      }
+      //set everything in the buffer to the null terminator
+      memset(buffer, '\0', buffsize);
+      //copy the old memory into the new buffer
+      memcpy(buffer, temp, readIN);
+      //free the old memory that was allocated temporarily
+      free(temp);
+    }
+   }
+   return readIN;
 }
 /*
 int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory that is meant to be deleted
