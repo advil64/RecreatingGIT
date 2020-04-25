@@ -65,7 +65,12 @@ int main (int argc, char ** argv) {
     }
     else if(crequest[0] == 'F') { // FILE:Path command
       int numBytes; // the number of bytes in a file
-      char pathName[PATH_MAX]; // the path where the file to be opened resides
+      int pathSize;
+      char pSize[6];
+      memset(pSize, '\0', 6);
+      recv(csocket, &pSize, sizeof(pSize), 0);
+      pathSize = atoi(pSize); // get the pathsize from the client
+      char pathName[pathSize]; // the path where the file to be opened resides
       char * fileBuf = NULL; // storing bytes in a file
       recv(csocket, &pathName, sizeof(pathName), 0);
       numBytes = fyleBiter(pathName, fileBuf);
@@ -161,7 +166,7 @@ int fyleBiter (char * path, char * buffer) { // given a file path, it will find 
    }
    return readIN;
 }
-/*
+
 int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory that is meant to be deleted
   //stores the filepath of our subdirectories
   char filePBuff[PATH_MAX + 1];
@@ -218,4 +223,3 @@ int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ /
   //return the current count
   return counter;
 }
-*/
