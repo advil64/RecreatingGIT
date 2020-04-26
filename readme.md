@@ -5,17 +5,35 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 ### Requests From Client
 
-*Project:* Client asks for a project in the following manner **Proj:** then **NameOfProject**, Server should first write the number of files to expect. Then server should give all the files in the project by using the following protocol. First send the path of each file, then just follow normal protocol for sending a file.
+#### Project 
+- Client asks for a project in the following manner **Proj:**
+- Then Client will send the **length of the project name +1** (including the null terminator) 
+- The Client will then send the **NameOfProject**
+- Server should first write the **number of files** to expect
+- Then server should give all the files in the project by using the following protocol:
+  - First send the **length of the path +1** (null terminator) of each file
+  - Then send the **path of the file** 
+  - Then just follow normal protocol for sending a file.
 
-*File:* Client asks for a file in the following manner **File:** then **FilePath**, server should first send the number of bytes in the requested file, then send the file itself. If the file/project does not exist, send -1 instead of the fileSize.
+#### Create
+- When you need to add a new project to the repo client will ask server to create a project in the following manner **Crea:**
+- Then Client will send the **length of the project name +1** (including the null terminator)
+- Then **NameOfProject** server needs to check that the project does not already exist
+- Server needs to send back a 1 if the project did not exist before and has been successfully created, otherwise send a -1 if the project had already existed.
+- Both client and server need to create the project and the manifest associated with the project.
 
-*Manifest project number:* Client asks for a file in the following manner **manV:**, server should retrieve the manifest version from the most recent manifest and send the number. (This might be deleted, so ignore it for now)
-
-*Create:* When you need to add a new project to the repo client will ask server to create a project in the following manner **Crea:** then **NameOfProject** you need to do the checks listed in the description. Send back a 1 if the project did not exist before and has been successfully created, otherwise send a -1 if the project had already existed.
+#### File
+- Client asks for a file in the following manner **File:** 
+- Then **FilePath size +1** (including the null terminator)
+- Then the Client will send **FilePath**
+- Server should first send the **number of bytes +1** (including the null terminator) in the requested file
+- Then send the file itself. If the file/project does not exist, send -1 instead of the fileSize.
 
 *Destroy:* When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest:** then **NameOfProject**, then you need to follow the directions on the description.
 
 *Check:* This command is merely to see if a given project exists on the server. The client will will ask the following **Chec:** then **NameOfProject** and the server should return a 1 is the project exists and a -1 if the project does not exist.
+
+~~*Manifest project number:* Client asks for a file in the following manner **manV:**, server should retrieve the manifest version from the most recent manifest and send the number. (This might be deleted, so ignore it for now)~~
 
 ## Client Functions
 
