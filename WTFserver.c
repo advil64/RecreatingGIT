@@ -21,8 +21,10 @@ struct projNode { // this is a node that holds the project name and what not
 int creator (char * name);
 int fyleBiter (char * path, char * buffer);
 int mkdir(const char * pathname, mode_t mode);
+int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec);
 
 struct projNode * nameTbl[256]; // hashtable that holds all project names, easy O(1) access
+char ** files; // global variable that holds all the files within a directory!
 
 int main (int argc, char ** argv) {
     memset(nameTbl, 0x0, 256 * sizeof(struct projNode *)); // setting everything in the hashtable to NULL
@@ -78,6 +80,16 @@ int main (int argc, char ** argv) {
       sprintf(nBytes, "%d", numBytes);
       send(csocket,nBytes, sizeof(nBytes), 0);
       send(csocket, fileBuf, sizeof(fileBuf), 0);
+    }
+    else if(crequest[0] == 'D') { // destroying a directory!!
+      files = (char **) malloc(100 * sizeof(char *));
+      char dName[30]; // name of
+      memset(dName, '\0', 30);
+      recv(csocket, &dName, sizeof(dName), 0); // getting directory to be DESTROYED
+      DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
+      destroyer(myDirec, 0, 100, dName);
+      char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
+      send(csocket, success, sizeof(success), 0);
     }
     return 0;
 }
@@ -188,11 +200,12 @@ int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ /
       //add the directory in question to the path
       strcat(filePBuff, currDir->d_name);
       //traverse the new directory
-      counter = direcTraverse(opendir(filePBuff), counter, currSize, filePBuff);
+      counter = destroyer(opendir(filePBuff), counter, currSize, filePBuff);
       //we are back in the original file, get rid of the previous file path
       strcpy(filePBuff, currDirec);
       //put the forward-slash back in there
       strcat(filePBuff, "/");
+      rmdir(filePBuff);
       //find the new max size of the array
       currSize = ((counter%100)+1)*100;
     } else if(currDir -> d_type == DT_REG){
@@ -202,6 +215,7 @@ int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ /
       strcpy(files[counter],filePBuff);
       //store the names of the files in our files array
       strcat(files[counter], currDir->d_name);
+      rmdir(files[counter]);
       //just to test the code
       //printf("%s\n", files[counter]);
       //check if files array needs more space
