@@ -53,9 +53,11 @@ int main (int argc, char ** argv) {
     recv(csocket, &crequest, sizeof(crequest), 0);
     printf("The client has requested the server to: %s", crequest);
     if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
-      char projName[PATH_MAX];
+      int projLen;
+      recv(csocket, &projLen, 4, 0);
+      char projName[projLen];
       int creRet; // what creator returns!
-      memset(projName, '\0', PATH_MAX);
+      memset(projName, '\0', projLen);
       recv(csocket, &projName, sizeof(projName), 0);
       creRet = creator(projName);
       if (creRet == 1) { // the file was created successfully
