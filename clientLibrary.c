@@ -35,18 +35,20 @@ int create(char * projName){
   //tell the server to create the project as well
   send(sfd, "Crea:", 5, 0);
   send(sfd, strlen(projName)+1, sizeof(int), 0);
-  send(sfd, projName, strlen(projName), 0);
+  send(sfd, projName, strlen(projName)+1, 0);
   int fileVer = 0;
   recv(sfd, &fileVer, sizeof(int), 0);
   if(fileVer < 0){
     printf("Project already exists on the server.\n");
+    close(sfd);
     return 1;
   }
   char * manFile = (char *)malloc(4);
   memset(manFile, '\0', 4);
   sprintf(manFile, "%d", fileVer);
 
-  //set up the .Manifest files
+  //set up the project and its .Manifest files
+  mkdir("");
   char manPath[PATH_MAX];
   memset(manPath, '\0', PATH_MAX);
   strcat(manPath, projName);
