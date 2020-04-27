@@ -19,15 +19,14 @@ struct projNode { // this is a node that holds the project name and what not
 };
 
 int creator (char * name);
+int checkers (char * name);
 int fyleBiter (char * path, char * buffer);
 int mkdir(const char * pathname, mode_t mode);
-int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec);
+int destroyer (DIR * myDirectory, int counter, int currSize, char * currDirec);
 
-struct projNode * nameTbl[256]; // hashtable that holds all project names, easy O(1) access
 char ** files; // global variable that holds all the files within a directory!
 
 int main (int argc, char ** argv) {
-    memset(nameTbl, 0x0, 256 * sizeof(struct projNode *)); // setting everything in the hashtable to NULL
     int lsocket; // declaring the file descriptor for our listening (server) socket
     int csocket; // declaring the file descriptor from the respective client socket
     int caddysize = -1;
@@ -54,7 +53,7 @@ int main (int argc, char ** argv) {
     printf("The client has requested the server to: %s", crequest);
     if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
       int projLen;
-      recv(csocket, &projLen, 4, 0);
+      recv(csocket, &projLen, sizeof(int), 0);
       char projName[projLen];
       int creRet; // what creator returns!
       memset(projName, '\0', projLen);
@@ -70,13 +69,13 @@ int main (int argc, char ** argv) {
     else if(crequest[0] == 'F') { // FILE:Path command
       int numBytes; // the number of bytes in a file
       int pathSize;
-      recv(csocket, &pathSize, 4, 0);
+      recv(csocket, &pathSize, sizeof(int), 0);
       char pathName[pathSize]; // the path where the file to be opened resides
       char * fileBuf = NULL; // storing bytes in a file
       memset(pathName, '\0', pathSize);
       recv(csocket, &pathName, sizeof(pathName), 0);
       numBytes = fyleBiter(pathName, fileBuf);
-      send(csocket,&numBytes, 4, 0);
+      send(csocket,&numBytes, sizeof(int), 0);
       send(csocket, fileBuf, sizeof(fileBuf), 0);
     }
     else if(crequest[0] == 'D') { // destroying a directory!!
@@ -89,51 +88,52 @@ int main (int argc, char ** argv) {
       char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
       send(csocket, success, sizeof(success), 0);
     }
+    else if (crequest[1] == 'h') { // checks to see if file exists
+      int returnstat;
+      int fileNameS;
+      recv(csocket, &fileNameS, sizeof(int), 0);
+      char project[fileNameS];
+      memset(project, '\0', fileNameS);
+      recv(csocket, &project, sizeof(project), 0);
+      returnstat = checkers(project);
+      if(returnstat == 1) { // success!
+        send(csocket, &manSuc, sizeof(int), 0);
+      }
+      else {
+        send(csocket, &manFail, sizeof(int), 0);
+      }
+    }
     return 0;
 }
 
 
 int creator (char * name) { // will see if the name of the project is there or not, whatever
-    int sum = 0;
-    int k;
     char manPath[PATH_MAX];
+    char newMan[1] = {'1'};
     memset(manPath, '\0', PATH_MAX);
     strcpy(manPath, name);
     strcat(manPath, "/.Manifest");
-    for (k = 0; k < strlen (name); k++) { // calculate the hash code for the name of the project
-        sum = sum + (int)name[k];
+    int mfd; // manpage file descriptor
+    DIR * proj = opendir(name);
+    if (proj == NULL) { // the directory does not exist in this world
+      mkdir(name, S_IRWXU); // makes the directory
+      mfd = open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
+      write(mfd, newMan, 1);
+      return 1;
     }
-    int index = sum % 256;
-    if (index < 0) {
-        index *= -1; // if index is negative, make it positive
-    }
-    if(nameTbl[index] == NULL) { // project does not exist!!!
-        struct projNode * newNode = (struct projNode *)malloc(sizeof(struct projNode));
-        newNode -> projName = name;
-        newNode -> next = NULL;
-        nameTbl[index] = newNode;
-        mkdir(name, S_IRWXU); // makes the directory
-        open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
-        return 1;
-    }
-    else { // this means that the index isnt empty, however 2 proj names may hash to same index in a linked list
-        struct projNode * temp = nameTbl[index];
-        while (temp != NULL) {
-            if(strcmp(temp->projName, name) == 0) {
-                return -1; // sadly the project name does exist, therefore this is a problem
-            }
-            else {
-                temp = temp ->next; // moving the nodes along the linked list
-            }
-        }
-        // this means that we have reached the end of the linked list and we have to create the project since it does not exist
-        temp = (struct projNode *)malloc(sizeof(struct projNode));
-        temp -> projName = name;
-        temp -> next = NULL;
-        mkdir(name, S_IRWXU); // makes the directory
-        open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
-        return 1;
-    }
+    else {
+      return -1; // the project already existed!!
+    } 
+}
+
+int checkers (char * name) { // almost like the opposite of create in my opinion, check to see if project exists!
+  DIR * proj = opendir(name);
+  if(proj == NULL) { // project doesnt exist!
+    return -1;
+  }
+  else {
+    return 1; // the project exists!
+  }
 }
 
 int fyleBiter (char * path, char * buffer) { // given a file path, it will find how many bytes are within a file!!
