@@ -70,17 +70,13 @@ int main (int argc, char ** argv) {
     else if(crequest[0] == 'F') { // FILE:Path command
       int numBytes; // the number of bytes in a file
       int pathSize;
-      char pSize[6];
-      memset(pSize, '\0', 6);
-      recv(csocket, &pSize, sizeof(pSize), 0);
-      pathSize = atoi(pSize); // get the pathsize from the client
+      recv(csocket, &pathSize, 4, 0);
       char pathName[pathSize]; // the path where the file to be opened resides
       char * fileBuf = NULL; // storing bytes in a file
+      memset(pathName, '\0', pathSize);
       recv(csocket, &pathName, sizeof(pathName), 0);
       numBytes = fyleBiter(pathName, fileBuf);
-      char nBytes[20];
-      sprintf(nBytes, "%d", numBytes);
-      send(csocket,nBytes, sizeof(nBytes), 0);
+      send(csocket,&numBytes, 4, 0);
       send(csocket, fileBuf, sizeof(fileBuf), 0);
     }
     else if(crequest[0] == 'D') { // destroying a directory!!
