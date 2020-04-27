@@ -53,9 +53,11 @@ int main (int argc, char ** argv) {
     recv(csocket, &crequest, sizeof(crequest), 0);
     printf("The client has requested the server to: %s", crequest);
     if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
-      char projName[PATH_MAX];
+      int projLen;
+      recv(csocket, &projLen, 4, 0);
+      char projName[projLen];
       int creRet; // what creator returns!
-      memset(projName, '\0', PATH_MAX);
+      memset(projName, '\0', projLen);
       recv(csocket, &projName, sizeof(projName), 0);
       creRet = creator(projName);
       if (creRet == 1) { // the file was created successfully
@@ -68,17 +70,13 @@ int main (int argc, char ** argv) {
     else if(crequest[0] == 'F') { // FILE:Path command
       int numBytes; // the number of bytes in a file
       int pathSize;
-      char pSize[6];
-      memset(pSize, '\0', 6);
-      recv(csocket, &pSize, sizeof(pSize), 0);
-      pathSize = atoi(pSize); // get the pathsize from the client
+      recv(csocket, &pathSize, 4, 0);
       char pathName[pathSize]; // the path where the file to be opened resides
       char * fileBuf = NULL; // storing bytes in a file
+      memset(pathName, '\0', pathSize);
       recv(csocket, &pathName, sizeof(pathName), 0);
       numBytes = fyleBiter(pathName, fileBuf);
-      char nBytes[20];
-      sprintf(nBytes, "%d", numBytes);
-      send(csocket,nBytes, sizeof(nBytes), 0);
+      send(csocket,&numBytes, 4, 0);
       send(csocket, fileBuf, sizeof(fileBuf), 0);
     }
     else if(crequest[0] == 'D') { // destroying a directory!!
