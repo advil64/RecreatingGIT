@@ -5,11 +5,11 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 ### Requests From Client
 
-#### Project 
+#### Project (Checkout)
 - Client asks for a project in the following manner **Proj:**
 - Then Client will send the **length of the project name +1** (including the null terminator) 
 - The Client will then send the **NameOfProject**
-- Server should first write the **number of files** to expect
+- Server should first write the **number of files** to expect including files in any and all subdirectories (DO NOT SEND THE BACKUPS HOWEVER)
 - Then server should give all the files in the project by using the following protocol:
   - First send the **length of the path +1** (null terminator) of each file
   - Then send the **path of the file** 

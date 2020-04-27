@@ -48,7 +48,7 @@ int create(char * projName){
   sprintf(manFile, "%d", fileVer);
 
   //set up the project and its .Manifest files
-  mkdir("");
+  mkdir(projName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   char manPath[PATH_MAX];
   memset(manPath, '\0', PATH_MAX);
   strcat(manPath, projName);
@@ -132,11 +132,11 @@ int removeMan(char * projName, char * filePath){
   }
   if(curr == NULL){
     printf("File is not on the manifest.\n");
+    freeLL(clienManHead);
     return 1;
   }
   rewriteManifest(clienManHead, manpath, version);
   freeLL(clienManHead);
-  close(sfd);
   return 0;
 }
 
@@ -154,6 +154,7 @@ int checkout(char * projName){
   //random declarations
   int numOfFiles;
   char path[PATH_MAX];
+  int pathLength;
   int i;
 
   //check if the given project already exists
@@ -172,13 +173,16 @@ int checkout(char * projName){
   }
 
   //now that we connected, we need to ask server for the project
-  write(sfd, "Project: ", 9);
-  write(sfd, projName, strlen(projName));
-  read(sfd, &numOfFiles, sizeof(int));
+  send(sfd, "Proj:", 5, 0);
+  send(sfd, strlen(projName)+1, sizeof(int), 0);
+  send(sfd, projName, strlen(projName)+1, 0);
+  recv(sfd, &numOfFiles, sizeof(int));
 
   //loop through the files and write them one by one
   for(i = 0; i < numOfFiles; i++){
-    read(sfd, path, PATH_MAX);
+    memset(path, '\0', PATH_MAX);
+    recv(sfd, &pathLength, sizeof(int), 0);
+    recv(sfd, path, pathLength, 0);
     writeFile(path);
   }
   return 0;
@@ -360,16 +364,16 @@ int update(char * projName){
 
   //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
   send(sfd, "File:", 5, 0);
-  send(sfd, &strlen(checksPath), sizeof(int), 0);
+  send(sfd, &strlen(checksPath)+1, sizeof(int), 0);
   send(sfd, checksPath, strlen(checksPath), 0);
   recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
     printf("The project you are looking for does not exist.\n");
     return 1;
   }
-  servMan = (char *)malloc((servManSize+1)*sizeof(char));
+  servMan = (char *)malloc((servManSize)*sizeof(char));
   recv(sfd, servMan, servManSize, 0);
-  servMan[servManSize] = '\0';
+  memset(servMan, '\0', servManSize);
   
   /* clientman -> holds client's manifest... servman -> holds server's manifest now compare the two
   .Manifest outline <project version> (once) <path> <file version> <hash> (for each file)
@@ -864,6 +868,7 @@ int commit(char * projName){
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Manifest");
   send(sfd, "File:", 5, 0);
+  send(sfd, strlen(checksPath)+1, sizeof(int), 0);
   send(sfd, checksPath, strlen(checksPath), 0);
   recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
@@ -872,7 +877,7 @@ int commit(char * projName){
   }
   servMan = (char *)malloc((servManSize+1)*sizeof(char));
   recv(sfd, servMan, servManSize, 0);
-  servMan[servManSize] = '\0';
+  memset(servMan, '\0', servManSize);
 
   //more fail checks
   memset(checksPath, '\0', PATH_MAX);
@@ -945,7 +950,6 @@ int commit(char * projName){
   strcat(checksPath, "/.Commit");
   int comFD = open(checksPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   char hash[SHA_DIGEST_LENGTH+1];
-  hash[SHA_DIGEST_LENGTH] = '\0';
   char hex[hashLen+1];
   int fileFD;
   char * currFile;
@@ -953,7 +957,7 @@ int commit(char * projName){
   int x = 0;
   int i = 0;
   while(clienCurr != NULL){
-    memset(hash, '\0', SHA_DIGEST_LENGTH);
+    memset(hash, '\0', SHA_DIGEST_LENGTH+1);
     memset(hex, '\0', hashLen+1);
     i = 0;
     x = 0;
@@ -963,8 +967,6 @@ int commit(char * projName){
       write(comFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
       write(comFD, " ", 1);
       write(comFD, clienCurr -> fileHash, hashLen+1);
-      write(comFD, " ", 1);
-      write(updateFD, &(clienCurr->fileVer), sizeof(int));
       write(comFD, "\n", 1);
       printf("%c %s", clienCurr -> tag, clienCurr -> filePath);
     } else{
@@ -982,9 +984,6 @@ int commit(char * projName){
         write(comFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
         write(comFD, " ", 1);
         write(comFD, hex, hashLen+1);
-        write(comFD, " ", 1);
-        clienCurr->fileVer++;
-        write(updateFD, &(clienCurr->fileVer), sizeof(int));
         write(comFD, "\n", 1);
         printf("%c %s", 'M', clienCurr -> filePath);
       }
