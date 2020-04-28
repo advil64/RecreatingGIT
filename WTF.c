@@ -92,9 +92,11 @@ if(strcmp(argv[1], "configure") == 0){
   }
 
   //read the configure file and get the socket
-  readConf();
-  write(sfd, "Destroy: ", 9);
-  write(sfd, argv[2], strlen(argv[2]));
+  connectToServer();
+  send(sfd, "Dest:", 5, 0);
+  int len = strlen(argv[2])+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, argv[2], strlen(argv[2]), 0);
   close(sfd);
 } else if(strcmp(argv[1], "remove") == 0){
   //first check that there are the right number of arguments

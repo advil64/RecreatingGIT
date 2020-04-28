@@ -34,7 +34,8 @@ int create(char * projName){
 
   //tell the server to create the project as well
   send(sfd, "Crea:", 5, 0);
-  send(sfd, strlen(projName)+1, sizeof(int), 0);
+  int len = strlen(projName)+1;
+  send(sfd, &len, sizeof(int), 0);
   send(sfd, projName, strlen(projName)+1, 0);
   int fileVer = 0;
   recv(sfd, &fileVer, sizeof(int), 0);
@@ -174,9 +175,9 @@ int checkout(char * projName){
 
   //now that we connected, we need to ask server for the project
   send(sfd, "Proj:", 5, 0);
-  send(sfd, strlen(projName)+1, sizeof(int), 0);
+  //send(sfd, strlen(projName)+1, sizeof(int), 0);
   send(sfd, projName, strlen(projName)+1, 0);
-  recv(sfd, &numOfFiles, sizeof(int));
+  recv(sfd, &numOfFiles, sizeof(int), 0);
 
   //loop through the files and write them one by one
   for(i = 0; i < numOfFiles; i++){
@@ -364,7 +365,7 @@ int update(char * projName){
 
   //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
   send(sfd, "File:", 5, 0);
-  send(sfd, &strlen(checksPath)+1, sizeof(int), 0);
+  //send(sfd, &strlen(checksPath)+1, sizeof(int), 0);
   send(sfd, checksPath, strlen(checksPath), 0);
   recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
@@ -868,7 +869,7 @@ int commit(char * projName){
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Manifest");
   send(sfd, "File:", 5, 0);
-  send(sfd, strlen(checksPath)+1, sizeof(int), 0);
+  //send(sfd, strlen(checksPath)+1, sizeof(int), 0);
   send(sfd, checksPath, strlen(checksPath), 0);
   recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
