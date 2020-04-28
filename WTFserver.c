@@ -213,7 +213,7 @@ int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ /
       strcpy(files[counter],filePBuff);
       //store the names of the files in our files array
       strcat(files[counter], currDir->d_name);
-      rmdir(files[counter]);
+      remove(files[counter]);
       //just to test the code
       //printf("%s\n", files[counter]);
       //check if files array needs more space
