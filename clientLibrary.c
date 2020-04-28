@@ -366,7 +366,7 @@ int update(char * projName){
   //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
   send(sfd, "File:", 5, 0);
   //send(sfd, &strlen(checksPath)+1, sizeof(int), 0);
-  send(sfd, checksPath, strlen(checksPath), 0);
+  send(sfd, checksPath, strlen(checksPath)+1, 0);
   recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
     printf("The project you are looking for does not exist.\n");

@@ -1,0 +1,56 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Client Build",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-g",
+				"${fileDirname}/WTF.c",
+				"${fileDirname}/clientLibrary.c",
+				"-fsanitize=address",
+				"-Wall",
+				"-Werror",
+				"-lssl",
+				"-fsanitize=address",
+				"-lcrypto",
+				"-o",
+				"${fileDirname}/WTF"
+			],
+			"options": {
+				"cwd": "/usr/bin"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}, {
+			"type": "shell",
+			"label": "Server Build",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-g",
+				"${fileDirname}/WTFserver.c",
+				"-lssl",
+				"-fsanitize=address",
+				"-lcrypto",
+				"-o",
+				"${fileDirname}/${fileBasenameNoExtension}"
+			],
+			"options": {
+				"cwd": "/usr/bin"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}
+	]
+}
