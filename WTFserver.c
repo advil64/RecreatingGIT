@@ -48,25 +48,24 @@ int main (int argc, char ** argv) {
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
     listen(lsocket, 0); // has 0 clients on backlog
     csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize);
-    while(1) {
-      send(csocket, sCon, sizeof(sCon), 0);
-      recv(csocket, &crequest, sizeof(crequest), 0);
-      printf("The client has requested the server to: %s", crequest);
-      if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
-        int projLen;
-        recv(csocket, &projLen, sizeof(int), 0);
-        char projName[projLen];
-        int creRet; // what creator returns!
-        memset(projName, '\0', projLen);
-        recv(csocket, &projName, sizeof(projName), 0);
-        creRet = creator(projName);
-        if (creRet == 1) { // the file was created successfully
-          send(csocket, &manSuc, sizeof(int), 0); // send 1 to the client
-        }
-        else { // file already existed yo
-          send(csocket, &manFail, sizeof(int), 0);
-        }
+    send(csocket, sCon, sizeof(sCon), 0);
+    recv(csocket, &crequest, sizeof(crequest), 0);
+    printf("The client has requested the server to: %s", crequest);
+    if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
+      int projLen;
+      recv(csocket, &projLen, sizeof(int), 0);
+      char projName[projLen];
+      int creRet; // what creator returns!
+      memset(projName, '\0', projLen);
+      recv(csocket, &projName, sizeof(projName), 0);
+      creRet = creator(projName);
+      if (creRet == 1) { // the file was created successfully
+      send(csocket, &manSuc, sizeof(int), 0); // send 1 to the client
       }
+      else { // file already existed yo
+        send(csocket, &manFail, sizeof(int), 0);
+      }
+    }
       else if(crequest[0] == 'F') { // FILE:Path command
         int numBytes; // the number of bytes in a file
         int pfd; // file descriptor for Path
@@ -109,7 +108,7 @@ int main (int argc, char ** argv) {
           send(csocket, &manFail, sizeof(int), 0);
         }
       }
-    }
+    
     return 0;
 }
 
