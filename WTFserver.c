@@ -20,7 +20,7 @@ struct projNode { // this is a node that holds the project name and what not
 
 int creator (char * name);
 int checkers (char * name);
-int fyleBiter (char * path, char * buffer);
+int fyleBiter (int fd, char ** buffer);
 int mkdir(const char * pathname, mode_t mode);
 int destroyer (DIR * myDirectory, int counter, int currSize, char * currDirec);
 
@@ -47,60 +47,66 @@ int main (int argc, char ** argv) {
     serveraddy.sin_addr.s_addr = INADDR_ANY;
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
     listen(lsocket, 0); // has 0 clients on backlog
-    csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize); // setting info to NULL rn
-    send(csocket, sCon, sizeof(sCon), 0);
-    recv(csocket, &crequest, sizeof(crequest), 0);
-    printf("The client has requested the server to: %s", crequest);
-    if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
-      int projLen;
-      recv(csocket, &projLen, sizeof(int), 0);
-      char projName[projLen];
-      int creRet; // what creator returns!
-      memset(projName, '\0', projLen);
-      recv(csocket, &projName, sizeof(projName), 0);
-      creRet = creator(projName);
-      if (creRet == 1) { // the file was created successfully
-        send(csocket, &manSuc, sizeof(int), 0); // send 1 to the client
+    while((csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize))) { // setting info to NULL rn
+      send(csocket, sCon, sizeof(sCon), 0);
+      recv(csocket, &crequest, sizeof(crequest), 0);
+      printf("The client has requested the server to: %s", crequest);
+      if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
+        int projLen;
+        recv(csocket, &projLen, sizeof(int), 0);
+        char projName[projLen];
+        int creRet; // what creator returns!
+        memset(projName, '\0', projLen);
+        recv(csocket, &projName, sizeof(projName), 0);
+        creRet = creator(projName);
+        if (creRet == 1) { // the file was created successfully
+          send(csocket, &manSuc, sizeof(int), 0); // send 1 to the client
+        }
+        else { // file already existed yo
+          send(csocket, &manFail, sizeof(int), 0);
+        }
       }
-      else { // file already existed yo
-        send(csocket, &manFail, sizeof(int), 0);
+      else if(crequest[0] == 'F') { // FILE:Path command
+        int numBytes; // the number of bytes in a file
+        int pfd; // file descriptor for Path
+        int pathSize;
+        recv(csocket, &pathSize, sizeof(int), 0);
+        char pathName[pathSize]; // the path where the file to be opened resides
+        char * fileBuf; // storing bytes in a file
+        memset(pathName, '\0', pathSize);
+        recv(csocket, &pathName, sizeof(pathName), 0);
+        pfd = open(pathName, O_RDONLY);
+        if(pfd == -1) {
+          send(csocket, &manFail, sizeof(int), 0);
+        }
+        numBytes = fyleBiter(pfd, &fileBuf);
+        send(csocket,&numBytes, sizeof(int), 0);
+        send(csocket, fileBuf, sizeof(fileBuf), 0);
       }
-    }
-    else if(crequest[0] == 'F') { // FILE:Path command
-      int numBytes; // the number of bytes in a file
-      int pathSize;
-      recv(csocket, &pathSize, sizeof(int), 0);
-      char pathName[pathSize]; // the path where the file to be opened resides
-      char * fileBuf = NULL; // storing bytes in a file
-      memset(pathName, '\0', pathSize);
-      recv(csocket, &pathName, sizeof(pathName), 0);
-      numBytes = fyleBiter(pathName, fileBuf);
-      send(csocket,&numBytes, sizeof(int), 0);
-      send(csocket, fileBuf, sizeof(fileBuf), 0);
-    }
-    else if(crequest[0] == 'D') { // destroying a directory!!
-      files = (char **) malloc(100 * sizeof(char *));
-      char dName[30]; // name of
-      memset(dName, '\0', 30);
-      recv(csocket, &dName, sizeof(dName), 0); // getting directory to be DESTROYED
-      DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
-      destroyer(myDirec, 0, 100, dName);
-      char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
-      send(csocket, success, sizeof(success), 0);
-    }
-    else if (crequest[1] == 'h') { // checks to see if file exists
-      int returnstat;
-      int fileNameS;
-      recv(csocket, &fileNameS, sizeof(int), 0);
-      char project[fileNameS];
-      memset(project, '\0', fileNameS);
-      recv(csocket, &project, sizeof(project), 0);
-      returnstat = checkers(project);
-      if(returnstat == 1) { // success!
-        send(csocket, &manSuc, sizeof(int), 0);
+      else if(crequest[0] == 'D') { // destroying a directory!!
+        files = (char **) malloc(100 * sizeof(char *));
+        char dName[30]; // name of
+        memset(dName, '\0', 30);
+        recv(csocket, &dName, sizeof(dName), 0); // getting directory to be DESTROYED
+        DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
+        destroyer(myDirec, 0, 100, dName);
+        char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
+        send(csocket, success, sizeof(success), 0);
       }
-      else {
-        send(csocket, &manFail, sizeof(int), 0);
+      else if (crequest[1] == 'h') { // checks to see if file exists
+        int returnstat;
+        int fileNameS;
+        recv(csocket, &fileNameS, sizeof(int), 0);
+        char project[fileNameS];
+        memset(project, '\0', fileNameS);
+        recv(csocket, &project, sizeof(project), 0);
+        returnstat = checkers(project);
+        if(returnstat == 1) { // success!
+          send(csocket, &manSuc, sizeof(int), 0);
+        }
+        else {
+          send(csocket, &manFail, sizeof(int), 0);
+        }
       }
     }
     return 0;
@@ -136,45 +142,18 @@ int checkers (char * name) { // almost like the opposite of create in my opinion
   }
 }
 
-int fyleBiter (char * path, char * buffer) { // given a file path, it will find how many bytes are within a file!!
-  int fd; // file descriptor for the file we wanna read
-  int buffsize = 100;
-  buffer = (char*) malloc(101 * sizeof(char));
-  char * temp; // temporary buffer
-  memset(buffer, '\0', 101);
-  fd = open(path, O_RDONLY); // opening the file given the path name with read only permission
-  int status = 1;
-  int readIN = 0;
-   while(status > 0){ 
-    //read buff size number of chars and store in myBuffer
-    do{
-      status = read(fd, buffer+readIN, 100);
-      readIN += status;
-    }while(readIN < buffsize && status > 0);
-    //check if there are more chars left
-    if(status > 0){
-      //increase the array size by 100
-      buffsize += 100;
-      //store the old values in the temp pointer
-      temp = buffer;
-      //malloc the new array to myBuffer
-      buffer = (char *)malloc(buffsize*sizeof(char));
-      //check if the pointer is null
-      if(buffer == NULL){
-        //print an error
-        printf("ERROR: Not enough space on heap\n");
-        //exit
-        return -1;
-      }
-      //set everything in the buffer to the null terminator
-      memset(buffer, '\0', buffsize);
-      //copy the old memory into the new buffer
-      memcpy(buffer, temp, readIN);
-      //free the old memory that was allocated temporarily
-      free(temp);
-    }
-   }
-   return readIN;
+int fyleBiter (int fd, char ** buffer) { // given a file path, it will find how many bytes are within a file!!
+  int buffSize = lseek(fd, (size_t)0, SEEK_END);
+  //store the contents of the config file (freed)
+  *buffer = malloc((buffSize+1)*sizeof(char));
+  //set the offset back to the start
+  lseek(fd, (size_t)0, SEEK_SET);
+  //memset the buffer to null terminators
+  memset(*buffer, '\0', buffSize+1);
+  //read the buffsize amount of bytes into the buffer
+  read(fd, *buffer, buffSize);
+  //return the size of the file
+  return buffSize;
 }
 
 int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory that is meant to be deleted
