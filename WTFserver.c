@@ -81,7 +81,7 @@ int main (int argc, char ** argv) {
         }
         numBytes = fyleBiter(pfd, &fileBuf);
         send(csocket,&numBytes, sizeof(int), 0);
-        send(csocket, fileBuf, sizeof(fileBuf), 0);
+        send(csocket, fileBuf, strlen(fileBuf) + 1, 0);
       }
       else if(crequest[0] == 'D') { // destroying a directory!!
         files = (char **) malloc(100 * sizeof(char *));
@@ -153,7 +153,7 @@ int fyleBiter (int fd, char ** buffer) { // given a file path, it will find how 
   //read the buffsize amount of bytes into the buffer
   read(fd, *buffer, buffSize);
   //return the size of the file
-  return buffSize;
+  return buffSize + 1;
 }
 
 int destroyer (DIR *myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory that is meant to be deleted
