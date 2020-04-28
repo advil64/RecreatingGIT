@@ -47,7 +47,8 @@ int main (int argc, char ** argv) {
     serveraddy.sin_addr.s_addr = INADDR_ANY;
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
     listen(lsocket, 0); // has 0 clients on backlog
-    while((csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize))) { // setting info to NULL rn
+    csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize);
+    while(1) {
       send(csocket, sCon, sizeof(sCon), 0);
       recv(csocket, &crequest, sizeof(crequest), 0);
       printf("The client has requested the server to: %s", crequest);
