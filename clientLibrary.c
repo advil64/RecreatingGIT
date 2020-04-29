@@ -365,16 +365,18 @@ int update(char * projName){
 
   //follow protocol to retrieve the .Manifest from the server, first ask it for the manifest then read it
   send(sfd, "File:", 5, 0);
-  //send(sfd, &strlen(checksPath)+1, sizeof(int), 0);
-  send(sfd, checksPath, strlen(checksPath)+1, 0);
+  int len = strlen(checksPath)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, checksPath, len, 0);
   recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
     printf("The project you are looking for does not exist.\n");
     return 1;
   }
   servMan = (char *)malloc((servManSize)*sizeof(char));
-  recv(sfd, servMan, servManSize, 0);
   memset(servMan, '\0', servManSize);
+  recv(sfd, servMan, servManSize, 0);
+
   
   /* clientman -> holds client's manifest... servman -> holds server's manifest now compare the two
   .Manifest outline <project version> (once) <path> <file version> <hash> (for each file)
@@ -407,7 +409,7 @@ int update(char * projName){
     unsigned char hash[SHA_DIGEST_LENGTH+1];
     char hex[hashLen+1];
     //for each entry in the server manifest, loop through the client manifest
-    while(servCurr != NULL || clienCurr != NULL){
+    while(servCurr != NULL && clienCurr != NULL){
       //find the corresponding entry in the client
       if(strcmp(servCurr ->filePath, clienCurr ->filePath) == 0){
         //memset before we do anything with the hash
