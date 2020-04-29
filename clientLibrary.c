@@ -801,15 +801,17 @@ int writeFile(char * path){
   int fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //follow protocol to retrieve the selected file from the server
   send(sfd, "File:", 5, 0);
-  send(sfd, path, strlen(path), 0);
+  int len = strlen(path)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, path, len, 0);
   recv(sfd, &fileSize, sizeof(int), 0);
   if(fileSize < 0){
     printf("The project/file you are looking for does not exist.\n");
     return 1;
   }
   serverFile = (char *)malloc((fileSize+1)*sizeof(char));
+  memset(serverFile, '\0', fileSize);
   recv(sfd, serverFile, fileSize, 0);
-  serverFile[fileSize] = '\0';
   write(fileFD, serverFile, fileSize);
   //frees and closes
   close(fileFD);
@@ -871,16 +873,18 @@ int commit(char * projName){
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Manifest");
   send(sfd, "File:", 5, 0);
-  //send(sfd, strlen(checksPath)+1, sizeof(int), 0);
+  int len = strlen(checksPath)+1;
+  send(sfd, &len, sizeof(int), 0);
   send(sfd, checksPath, strlen(checksPath), 0);
   recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
     printf("The project you are looking for does not exist.\n");
+    close(sfd);
     return 1;
   }
   servMan = (char *)malloc((servManSize+1)*sizeof(char));
-  recv(sfd, servMan, servManSize, 0);
   memset(servMan, '\0', servManSize);
+  recv(sfd, servMan, servManSize, 0);
 
   //more fail checks
   memset(checksPath, '\0', PATH_MAX);
@@ -892,6 +896,8 @@ int commit(char * projName){
   if(size != 0){
     printf("Please finish your updates first, then you can commit the project.\n");
     close(updateFD);
+    close(sfd);
+    free(updateBuff);
     return 1;
   }
   memset(checksPath, '\0', PATH_MAX);
@@ -901,6 +907,8 @@ int commit(char * projName){
   if(confFD > 0){
     printf("Please resolve ALL conflicts before progressing.\n");
     close(confFD);
+    close(sfd);
+    return 1;
   }
 
   //now get the manifest from the client
@@ -956,9 +964,9 @@ int commit(char * projName){
   char hex[hashLen+1];
   int fileFD;
   char * currFile;
-  int len;
   int x = 0;
   int i = 0;
+  char version[strMax];
   while(clienCurr != NULL){
     memset(hash, '\0', SHA_DIGEST_LENGTH+1);
     memset(hex, '\0', hashLen+1);
@@ -970,6 +978,10 @@ int commit(char * projName){
       write(comFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
       write(comFD, " ", 1);
       write(comFD, clienCurr -> fileHash, hashLen+1);
+      write(comFD, " ", 1);
+      memset(version, '\0', strMax);
+      sprintf(version, "%d", (clienCurr -> fileVer)+1);
+      write(comFD, version, strlen(version));
       write(comFD, "\n", 1);
       printf("%c %s", clienCurr -> tag, clienCurr -> filePath);
     } else{
@@ -987,11 +999,60 @@ int commit(char * projName){
         write(comFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
         write(comFD, " ", 1);
         write(comFD, hex, hashLen+1);
+        write(comFD, " ", 1);
+        memset(version, '\0', strMax);
+        sprintf(version, "%d", (clienCurr -> fileVer)+1);
+        write(comFD, version, strlen(version));
         write(comFD, "\n", 1);
         printf("%c %s", 'M', clienCurr -> filePath);
       }
     }
   }
+
+  //load the contents of the .commit file into the buffer
+  close(comFD);
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Commit");
+  int rdComFD = open(checksPath, O_RDONLY);
+  char * commBuffer;
+  len = readFile(rdComFD, &commBuffer);
+
+  //calculate the .commit file's hashcode
+  i = 0;
+  x = 0;
+  memset(hash, '\0', SHA_DIGEST_LENGTH+1);
+  memset(hex, '\0', hashLen+1);
+  SHA1((unsigned char *)commBuffer, len, (unsigned char *)hash);
+  while(x < SHA_DIGEST_LENGTH){
+    snprintf((char*)(hex+i),3,"%02X", hash[x]);
+    x+=1;
+    i+=2;
+  }
+
+  //send the path to server
+  send(sfd, "Comm:", 5, 0);
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Commit-");
+  strcat(checksPath, hex);
+  len = strlen(checksPath)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, checksPath, len, 0);
+
+  //send the file to server first send size then the buffer
+  len = strlen(commBuffer)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, commBuffer, len, 0);
+
+  //free you stuff
+  freeLL(clienManHead);
+  freeLL(servManHead);
+  free(commBuffer);
+  free(clientMan);
+  free(servMan);
+  close(sfd);
+  close(rdComFD);
 
   return 0;
 }

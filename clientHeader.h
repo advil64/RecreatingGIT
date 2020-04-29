@@ -26,7 +26,7 @@
 
 #define TRUE 1
 #define FALSE 0
-#define strMax 9999
+#define strMax 999
 #define hashLen 40
 
 //struct declarations, this one is for the contents of the manifest

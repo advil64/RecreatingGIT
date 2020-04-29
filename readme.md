@@ -29,6 +29,19 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 - Server should first send the **number of bytes +1** (including the null terminator) in the requested file
 - Then send the file itself. If the file/project does not exist, send -1 instead of the fileSize.
 
+#### Commit
+- Client needs to make a commit in the following manner **Comm:**
+- Then the name/path of the file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
+- Then the Client will send **FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
+- Server should merely store the given commit file in the appropriate project and wait until the commit has been pushed to make the changes.
+
+#### Push
+- Client will ask to push the changes in the commit in the following manner **Push:**
+- Then the name/path of the file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
+- Then the Client will send **FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
+- Server should now fetch that selected .commit file and loop through the given number of entries and wait for further instruction
+- The client will now send the **length of each file path + 1** then send the **file path** and then send the **# of bytes in the file** and send the file itself.
+
 *Destroy:* When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest:** then **NameOfProject**, then you need to follow the directions on the description.
 
 *Check:* This command is merely to see if a given project exists on the server. The client will will ask the following **Chec:** then **NameOfProject** and the server should return a 1 is the project exists and a -1 if the project does not exist.
