@@ -23,6 +23,7 @@ int checkers (char * name);
 int fyleBiter (int fd, char ** buffer);
 int mkdir(const char * pathname, mode_t mode);
 int destroyer (DIR * myDirectory, char * currDirec);
+int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec);
 
 char ** files; // global variable that holds all the files within a directory!
 
@@ -84,7 +85,6 @@ int main (int argc, char ** argv) {
         send(csocket, fileBuf, strlen(fileBuf) + 1, 0);
       }
       else if(crequest[0] == 'D') { // destroying a directory!!
-        files = (char **) malloc(100 * sizeof(char *));
         char dName[30]; // name of
         memset(dName, '\0', 30);
         recv(csocket, &dName, sizeof(dName), 0); // getting directory to be DESTROYED
@@ -109,13 +109,17 @@ int main (int argc, char ** argv) {
         }
       }
       else if(crequest[3] == 'j') { // Proj: protocol
+        files = (char **) malloc(100 * sizeof(char *));
         int lenProjName; // length of project name
         recv(csocket, &lenProjName, sizeof(int), 0); // getting lentgh of proj name + 1 from client
         char pject[lenProjName]; // making buffer
         memset(pject, '\0', lenProjName); // presetting it beforehand
         recv(csocket, &pject, sizeof(pject), 0); // getting project name from client
+        DIR * projDirec = opendir(pject);
         int numfiles; // number of files within said project
-
+        numfiles = traverser(projDirec, 0, 100, pject);
+        numfiles = numfiles + 1;
+        send(csocket, &numfiles, sizeof(int), 0); // send client number of files
       }
     return 0;
 }
@@ -184,7 +188,7 @@ int destroyer (DIR * myDirectory, char * currDirec) { // takes in a directory th
       remove(fylePBuff);
     }
   }
-  return 1;   //return the current count
+  return 1;   //return 1
 }
 
 int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory and gets files!
