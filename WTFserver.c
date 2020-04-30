@@ -110,7 +110,10 @@ int main (int argc, char ** argv) {
       }
       else if(crequest[3] == 'j') { // Proj: protocol
         files = (char **) malloc(100 * sizeof(char *));
+        char * fileboof; // buffer to store file into
+        int nbytes; // number of bytes in a file
         int lenProjName; // length of project name
+        int bfg; // file descriptors for each file!
         recv(csocket, &lenProjName, sizeof(int), 0); // getting lentgh of proj name + 1 from client
         char pject[lenProjName]; // making buffer
         memset(pject, '\0', lenProjName); // presetting it beforehand
@@ -118,8 +121,16 @@ int main (int argc, char ** argv) {
         DIR * projDirec = opendir(pject);
         int numfiles; // number of files within said project
         numfiles = traverser(projDirec, 0, 100, pject);
-        numfiles = numfiles + 1;
+        numfiles = numfiles + 1; // has to account for array indexes!
         send(csocket, &numfiles, sizeof(int), 0); // send client number of files
+        int i = 0;
+        while (i < numfiles) { // traverse files array
+          bfg = open(files[i], O_RDONLY);
+          nbytes = fyleBiter(bfg, &fileboof);
+          send(csocket, &nbytes, sizeof(int), 0);
+          send(csocket, fileboof, strlen(fileboof) + 1, 0);
+          i++;
+        }
       }
     return 0;
 }
@@ -177,7 +188,7 @@ int destroyer (DIR * myDirectory, char * currDirec) { // takes in a directory th
     }
     if(currDir->d_type == DT_DIR) {  //first check if the currdir is a regular file or a directory
       strcat(filePBuff, currDir->d_name); //add the directory in question to the path
-     destroyer(opendir(filePBuff), filePBuff);  //traverse the new directory
+      destroyer(opendir(filePBuff), filePBuff);  //traverse the new directory
       strcpy(filePBuff, currDirec);  //we are back in the original file, get rid of the previous file path
       strcat(filePBuff, "/");  //put the forward-slash back in there
       rmdir(filePBuff);
@@ -191,7 +202,7 @@ int destroyer (DIR * myDirectory, char * currDirec) { // takes in a directory th
   return 1;   //return 1
 }
 
-int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory and gets files!
+int traverser (DIR * myDirectory, int count, int currSize, char * currDirec){ // takes in a directory and gets files!
   char filePBuff[PATH_MAX + 1]; //stores the filepath of our subdirectories
   strcpy(filePBuff, currDirec); //in the case of recursion, update the filepath so that we do not get lost
   strcat(filePBuff, "/"); //add a forward-slash at the end to get ready to add more to the path
@@ -200,31 +211,23 @@ int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec){ 
     if(strcmp(currDir->d_name, ".") == 0 || strcmp(currDir->d_name, "..") == 0 || strcmp(currDir->d_name,".DS_Store") == 0){ //skip the . and .. and dsstore file
       continue; //skip the iteration
     }
-    if(currDir->d_type == DT_DIR) { //check if the currdir is a regular file or a directory
+    if(currDir->d_type == DT_DIR) { //directory is a directory
       strcat(filePBuff, currDir->d_name); //add the directory in question to the path
-      counter = traverser(opendir(filePBuff), counter, currSize, filePBuff); //traverse the new directory
+      count = traverser(opendir(filePBuff), count, currSize, filePBuff); //traverse the new directory
       strcpy(filePBuff, currDirec); //we are back in the original file, get rid of the previous file path
-      //put the forward-slash back in there
       strcat(filePBuff, "/"); //put the forward-slash back in there
-      currSize = ((counter%100)+1)*100; //find the new max size of the array
+      currSize = ((count%100)+1)*100; //find the new max size of the array
     } 
-    else if(currDir -> d_type == DT_REG){
-      files[counter] = (char *)malloc((PATH_MAX+1) * sizeof(char)); //allocate space for the file path
-      strcpy(files[counter],filePBuff); //add the file path to the array
-      strcat(files[counter], currDir->d_name); //store the names of the files in our files array
-      //just to test the code
-      //printf("%s\n", files[counter]);
-      //check if files array needs more space
-      if(++counter >= currSize){
+    else if(currDir -> d_type == DT_REG){ // directory is a file
+      files[count] = (char *)malloc((PATH_MAX+1) * sizeof(char)); //allocate space for the file path
+      strcpy(files[count],filePBuff); //add the file path to the array
+      strcat(files[count], currDir->d_name); //store the names of the files in our files array
+      if(++count >= currSize){   //check if files array needs more space
         //realloc 100 more spaces in our files array
         files = realloc(files, (currSize+100) * sizeof(char *));  //realloc 100 more spaces in our files array
-        if(!files){ //check is the given file exists
-          printf("FATAL ERROR: Not enough memory\n");
-          exit(1);
-        }
         currSize += 100;  //change the curr size accordingly
       }
     }
   }
-  return counter; //return the current count
+  return count; //return the current count
 }
