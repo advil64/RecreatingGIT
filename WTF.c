@@ -120,6 +120,17 @@ if(strcmp(argv[1], "configure") == 0){
     printf("There was an error while fetching the history for the %s project.\n", argv[2]);
     exit(0);
   }
+} else if(strcmp(argv[1], "push") == 0){
+  //first check that there are the right number of arguments
+  if(argc != 3){
+    printf("Insufficient arguments.\n");
+    exit(0);
+  }
+  //now push the commit
+  if(push(argv[2])){
+    printf("Unable to push the latest version of this project.\n");
+    exit(0);
+  }
 }
 return 0;
 }

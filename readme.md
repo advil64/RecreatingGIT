@@ -39,8 +39,10 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 - Client will ask to push the changes in the commit in the following manner **Push:**
 - Then the name/path of the file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
 - Then the Client will send **FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
+- Server should first check to see if that file exists and send a 1 if it does and -1 if it doesn't
 - Server should now fetch that selected .commit file and loop through the given number of entries and wait for further instruction
-- The client will now send the **length of each file path + 1** then send the **file path** and then send the **# of bytes in the file** and send the file itself.
+- The client will then send the instruction **Newf:** for each file that has been modified or added and needs to be sent by the client.
+- The client will now send the **length of each file path + 1** then send the **file path** and then send the **# of bytes in the file** and send the **file** itself.
 
 *Destroy:* When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest:** then **NameOfProject**, then you need to follow the directions on the description.
 
@@ -49,6 +51,9 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 ~~*Manifest project number:* Client asks for a file in the following manner **manV:**, server should retrieve the manifest version from the most recent manifest and send the number. (This might be deleted, so ignore it for now)~~
 
 ## Client Functions
+
+### Push
+
 
 ### Update
 * [x] Checks to see if .Configure has been setup correctly and the client has stored the IP and Port number
