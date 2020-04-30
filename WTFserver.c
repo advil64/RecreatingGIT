@@ -156,10 +156,8 @@ int fyleBiter (int fd, char ** buffer) { // given a file path, it will find how 
 }
 
 int destroyer (DIR * myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory that is meant to be deleted
-  //stores the filepath of our subdirectories
-  char filePBuff[PATH_MAX + 1];
-  //in the case of recursion, update the filepath so that we do not get lost
-  strcpy(filePBuff, currDirec);
+  char filePBuff[PATH_MAX + 1]; //stores the filepath of our subdirectories
+  strcpy(filePBuff, currDirec); //in the case of recursion, update the filepath so that we do not get lost
   //add a forward-slash at the end to get ready to add more to the path
   strcat(filePBuff, "/");
   //the dirent struct which holds whatever readdir returns
