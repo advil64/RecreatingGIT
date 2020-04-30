@@ -1155,7 +1155,7 @@ int push(char * projName){
   while(line != NULL){
     clienCurr = clienManHead;
     memset(checksPath, '\0', PATH_MAX);
-    sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, fileVer);
+    sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, &fileVer);
     if(instruction == 'A' || instruction == 'M'){
       while(clienCurr != NULL){
         if(strcmp(clienCurr -> filePath, checksPath) == 0){
