@@ -22,7 +22,8 @@ int creator (char * name);
 int checkers (char * name);
 int fyleBiter (int fd, char ** buffer);
 int mkdir(const char * pathname, mode_t mode);
-int destroyer (DIR * myDirectory, int counter, int currSize, char * currDirec);
+int destroyer (DIR * myDirectory, char * currDirec);
+int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec);
 
 char ** files; // global variable that holds all the files within a directory!
 
@@ -84,12 +85,11 @@ int main (int argc, char ** argv) {
         send(csocket, fileBuf, strlen(fileBuf) + 1, 0);
       }
       else if(crequest[0] == 'D') { // destroying a directory!!
-        files = (char **) malloc(100 * sizeof(char *));
         char dName[30]; // name of
         memset(dName, '\0', 30);
         recv(csocket, &dName, sizeof(dName), 0); // getting directory to be DESTROYED
         DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
-        destroyer(myDirec, 0, 100, dName);
+        destroyer(myDirec, dName);
         char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
         send(csocket, success, sizeof(success), 0);
       }
@@ -106,6 +106,31 @@ int main (int argc, char ** argv) {
         }
         else {
           send(csocket, &manFail, sizeof(int), 0);
+        }
+      }
+      else if(crequest[3] == 'j') { // Proj: protocol
+        files = (char **) malloc(100 * sizeof(char *));
+        char * fileboof; // buffer to store file into
+        int nbytes; // number of bytes in a file
+        int lenProjName; // length of project name
+        int bfg; // file descriptors for each file!
+        recv(csocket, &lenProjName, sizeof(int), 0); // getting lentgh of proj name + 1 from client
+        char pject[lenProjName]; // making buffer
+        memset(pject, '\0', lenProjName); // presetting it beforehand
+        recv(csocket, &pject, sizeof(pject), 0); // getting project name from client
+        DIR * projDirec = opendir(pject);
+        int numfiles; // number of files within said project
+        numfiles = traverser(projDirec, 0, 100, pject);
+        numfiles = numfiles + 1; // has to account for array indexes!
+        send(csocket, &numfiles, sizeof(int), 0); // send client number of files
+        int i = 0;
+        while (i < numfiles) { // traverse files array
+          send(csocket, files[i], strlen(files[i]) + 1, 0); // send path of file
+          bfg = open(files[i], O_RDONLY); // open the file
+          nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
+          send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
+          send(csocket, fileboof, strlen(fileboof) + 1, 0); // sending buffer to client
+          i++;
         }
       }
     return 0;
@@ -143,134 +168,67 @@ int checkers (char * name) { // almost like the opposite of create in my opinion
 
 int fyleBiter (int fd, char ** buffer) { // given a file path, it will find how many bytes are within a file!!
   int buffSize = lseek(fd, (size_t)0, SEEK_END);
-  //store the contents of the config file (freed)
-  *buffer = malloc((buffSize+1)*sizeof(char));
-  //set the offset back to the start
-  lseek(fd, (size_t)0, SEEK_SET);
-  //memset the buffer to null terminators
-  memset(*buffer, '\0', buffSize+1);
-  //read the buffsize amount of bytes into the buffer
-  read(fd, *buffer, buffSize);
-  //return the size of the file
-  return buffSize + 1;
+  *buffer = malloc((buffSize+1)*sizeof(char)); //store the contents of the config file (freed)
+  lseek(fd, (size_t)0, SEEK_SET);   //set the offset back to the start
+  memset(*buffer, '\0', buffSize+1);   //memset the buffer to null terminators
+  read(fd, *buffer, buffSize);   //read the buffsize amount of bytes into the buffer
+  return buffSize + 1;   //return the size of the file
+
 }
 
-int destroyer (DIR * myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory that is meant to be deleted
-  //stores the filepath of our subdirectories
-  char filePBuff[PATH_MAX + 1];
-  //in the case of recursion, update the filepath so that we do not get lost
-  strcpy(filePBuff, currDirec);
-  //add a forward-slash at the end to get ready to add more to the path
-  strcat(filePBuff, "/");
-  //the dirent struct which holds whatever readdir returns
-  struct dirent * currDir;
-  //loop through the contents of the directory and store in files array
-  while((currDir = readdir(myDirectory)) != NULL){
+int destroyer (DIR * myDirectory, char * currDirec) { // takes in a directory that is meant to be deleted
+  char filePBuff[PATH_MAX + 1]; //stores the filepath of our subdirectories
+  char fylePBuff[PATH_MAX + 1]; // stores filepath of files!!
+  strcpy(filePBuff, currDirec); //in the case of recursion, update the filepath so that we do not get lost
+  strcat(filePBuff, "/");   //add a forward-slash at the end to get ready to add more to the path
+  struct dirent * currDir;   //the dirent struct which holds whatever readdir returns
+  while((currDir = readdir(myDirectory)) != NULL) {   //loop through the contents of the directory and store in files array
     //skip the . and .. and dsstore file
-    if(strcmp(currDir->d_name, ".") == 0 || strcmp(currDir->d_name, "..") == 0 || strcmp(currDir->d_name,".DS_Store") == 0){
-      //skip the iteration
+    if(strcmp(currDir->d_name, ".") == 0 || strcmp(currDir->d_name, "..") == 0 || strcmp(currDir->d_name,".DS_Store") == 0) {
       continue;
     }
-    //first check if the currdir is a regular file or a directory
-    if(currDir->d_type == DT_DIR){
-      //add the directory in question to the path
-      strcat(filePBuff, currDir->d_name);
-      //traverse the new directory
-      counter = destroyer(opendir(filePBuff), counter, currSize, filePBuff);
-      //we are back in the original file, get rid of the previous file path
-      strcpy(filePBuff, currDirec);
-      //put the forward-slash back in there
-      strcat(filePBuff, "/");
+    if(currDir->d_type == DT_DIR) {  //first check if the currdir is a regular file or a directory
+      strcat(filePBuff, currDir->d_name); //add the directory in question to the path
+      destroyer(opendir(filePBuff), filePBuff);  //traverse the new directory
+      strcpy(filePBuff, currDirec);  //we are back in the original file, get rid of the previous file path
+      strcat(filePBuff, "/");  //put the forward-slash back in there
       rmdir(filePBuff);
-      //find the new max size of the array
-      currSize = ((counter%100)+1)*100;
     } 
-    else if(currDir -> d_type == DT_REG){
-      //allocate space for the file path
-      files[counter] = (char *)malloc((PATH_MAX+1) * sizeof(char));
-      //add the file path to the array
-      strcpy(files[counter],filePBuff);
-      //store the names of the files in our files array
-      strcat(files[counter], currDir->d_name);
-      remove(files[counter]);
-      //just to test the code
-      //printf("%s\n", files[counter]);
-      //check if files array needs more space
-      if(++counter >= currSize){
+    else if(currDir -> d_type == DT_REG) {
+      strcpy(fylePBuff,filePBuff); //add the file path to the array
+      strcat(fylePBuff, currDir->d_name); //store the names of the files in our files array
+      remove(fylePBuff);
+    }
+  }
+  return 1;   //return 1
+}
+
+int traverser (DIR * myDirectory, int count, int currSize, char * currDirec){ // takes in a directory and gets files!
+  char filePBuff[PATH_MAX + 1]; //stores the filepath of our subdirectories
+  strcpy(filePBuff, currDirec); //in the case of recursion, update the filepath so that we do not get lost
+  strcat(filePBuff, "/"); //add a forward-slash at the end to get ready to add more to the path
+  struct dirent * currDir; //the dirent struct which holds whatever readdir returns
+  while((currDir = readdir(myDirectory)) != NULL){ //loop through the contents of the directory and store in files array
+    if(strcmp(currDir->d_name, ".") == 0 || strcmp(currDir->d_name, "..") == 0 || strcmp(currDir->d_name,".DS_Store") == 0){ //skip the . and .. and dsstore file
+      continue; //skip the iteration
+    }
+    if(currDir->d_type == DT_DIR) { //directory is a directory
+      strcat(filePBuff, currDir->d_name); //add the directory in question to the path
+      count = traverser(opendir(filePBuff), count, currSize, filePBuff); //traverse the new directory
+      strcpy(filePBuff, currDirec); //we are back in the original file, get rid of the previous file path
+      strcat(filePBuff, "/"); //put the forward-slash back in there
+      currSize = ((count%100)+1)*100; //find the new max size of the array
+    } 
+    else if(currDir -> d_type == DT_REG){ // directory is a file
+      files[count] = (char *)malloc((PATH_MAX+1) * sizeof(char)); //allocate space for the file path
+      strcpy(files[count],filePBuff); //add the file path to the array
+      strcat(files[count], currDir->d_name); //store the names of the files in our files array
+      if(++count >= currSize){   //check if files array needs more space
         //realloc 100 more spaces in our files array
-        files = realloc(files, (currSize+100) * sizeof(char *));
-        //check is the given file exists
-        if(!files){
-          //file does not exist it is a fatal error
-          printf("FATAL ERROR: Not enough memory\n");
-          //exit the code
-          exit(1);
-        }
-        //change the curr size accordingly
-        currSize += 100;
+        files = realloc(files, (currSize+100) * sizeof(char *));  //realloc 100 more spaces in our files array
+        currSize += 100;  //change the curr size accordingly
       }
     }
   }
-  //return the current count
-  return counter;
-}
-
-int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec){ // takes in a directory that is meant to be deleted
-  //stores the filepath of our subdirectories
-  char filePBuff[PATH_MAX + 1];
-  //in the case of recursion, update the filepath so that we do not get lost
-  strcpy(filePBuff, currDirec);
-  //add a forward-slash at the end to get ready to add more to the path
-  strcat(filePBuff, "/");
-  //the dirent struct which holds whatever readdir returns
-  struct dirent * currDir;
-  //loop through the contents of the directory and store in files array
-  while((currDir = readdir(myDirectory)) != NULL){
-    //skip the . and .. and dsstore file
-    if(strcmp(currDir->d_name, ".") == 0 || strcmp(currDir->d_name, "..") == 0 || strcmp(currDir->d_name,".DS_Store") == 0){
-      //skip the iteration
-      continue;
-    }
-    //first check if the currdir is a regular file or a directory
-    if(currDir->d_type == DT_DIR){
-      //add the directory in question to the path
-      strcat(filePBuff, currDir->d_name);
-      //traverse the new directory
-      counter = destroyer(opendir(filePBuff), counter, currSize, filePBuff);
-      //we are back in the original file, get rid of the previous file path
-      strcpy(filePBuff, currDirec);
-      //put the forward-slash back in there
-      strcat(filePBuff, "/");
-      rmdir(filePBuff);
-      //find the new max size of the array
-      currSize = ((counter%100)+1)*100;
-    } 
-    else if(currDir -> d_type == DT_REG){
-      //allocate space for the file path
-      files[counter] = (char *)malloc((PATH_MAX+1) * sizeof(char));
-      //add the file path to the array
-      strcpy(files[counter],filePBuff);
-      //store the names of the files in our files array
-      strcat(files[counter], currDir->d_name);
-      remove(files[counter]);
-      //just to test the code
-      //printf("%s\n", files[counter]);
-      //check if files array needs more space
-      if(++counter >= currSize){
-        //realloc 100 more spaces in our files array
-        files = realloc(files, (currSize+100) * sizeof(char *));
-        //check is the given file exists
-        if(!files){
-          //file does not exist it is a fatal error
-          printf("FATAL ERROR: Not enough memory\n");
-          //exit the code
-          exit(1);
-        }
-        //change the curr size accordingly
-        currSize += 100;
-      }
-    }
-  }
-  //return the current count
-  return counter;
+  return count; //return the current count
 }
