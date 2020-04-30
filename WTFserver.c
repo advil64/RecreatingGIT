@@ -125,10 +125,11 @@ int main (int argc, char ** argv) {
         send(csocket, &numfiles, sizeof(int), 0); // send client number of files
         int i = 0;
         while (i < numfiles) { // traverse files array
-          bfg = open(files[i], O_RDONLY);
-          nbytes = fyleBiter(bfg, &fileboof);
-          send(csocket, &nbytes, sizeof(int), 0);
-          send(csocket, fileboof, strlen(fileboof) + 1, 0);
+          send(csocket, files[i], strlen(files[i]) + 1, 0); // send path of file
+          bfg = open(files[i], O_RDONLY); // open the file
+          nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
+          send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
+          send(csocket, fileboof, strlen(fileboof) + 1, 0); // sending buffer to client
           i++;
         }
       }
