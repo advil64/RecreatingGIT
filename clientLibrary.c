@@ -980,7 +980,7 @@ int commit(char * projName){
       write(comFD, clienCurr -> fileHash, hashLen+1);
       write(comFD, " ", 1);
       memset(version, '\0', strMax);
-      sprintf(version, "%d", (clienCurr -> fileVer)+1);
+      sprintf(version, "%d", (clienCurr -> fileVer));
       write(comFD, version, strlen(version));
       write(comFD, "\n", 1);
       printf("%c %s", clienCurr -> tag, clienCurr -> filePath);
@@ -1073,14 +1073,133 @@ directories created, unlock the repository and send a failure message to the cli
 */
 
 int push(char * projName){
-  //first check to see if .configure has been created
-  int confFD = open(".configure", O_RDONLY);
-  //if confd is negative, return unsuccessfull
-  if(confFD < 0){
-    //configure does not exist, return an error
+
+  //check if the given project exists on the client (closed)
+  DIR *myDirec = opendir(projName);
+  if(!myDirec){
+    printf("The project you want does not exist.\n");
     return 1;
   }
-  //TODO: Finish the rest of this function
+
+  //this method connects to the server at the given IP address and populates the global hostent also checks
+  if(connectToServer()){
+    printf("We're having difficulties connecting to the server at the given IP address and port.\n");
+    return 1;
+  }
+
+  //given the project name, we need to check if the commit file exists
+  char checksPath[PATH_MAX];
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Commit");
+  int comFD = open(checksPath, O_RDONLY);
+  if(comFD < 0){
+    printf("Please commit your changes before trying to push them.\n");
+    close(sfd);
+    return 1;
+  }
+  char * commBuffer;
+  int len = readFile(comFD, &commBuffer);
+
+  //calculate the .commit file's hashcode
+  int i = 0;
+  int x = 0;
+  char hash[SHA_DIGEST_LENGTH+1];
+  char hex[hashLen+1];
+  memset(hash, '\0', SHA_DIGEST_LENGTH+1);
+  memset(hex, '\0', hashLen+1);
+  SHA1((unsigned char *)commBuffer, len, (unsigned char *)hash);
+  while(x < SHA_DIGEST_LENGTH){
+    snprintf((char*)(hex+i),3,"%02X", hash[x]);
+    x+=1;
+    i+=2;
+  }
+
+  //check if that particular commit is in the server
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Commit-");
+  strcat(checksPath, hex);
+  send(sfd, "Push:", 5, 0);
+  len = strlen(checksPath)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, checksPath, len, 0);
+  int status;
+  recv(sfd, &status, sizeof(int), 0);
+  if(status < 0){
+    printf("Please commit before you try to push to the server.\n");
+    close(sfd);
+    return 1;
+  }
+
+  //we need to open manifest also to update versions
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Manifest");
+  int manFD = open(checksPath, O_RDONLY);
+  char * manBuff;
+  readFile(manFD, &manBuff);
+  close(manFD);
+
+  //populate them linked lists to start making changes to it
+  int manVer = populateManifest(manBuff, &clienManHead);
+
+  //tokenize through the files and start changing versions and removing entries
+  char * line;
+  line = strtok(commBuffer, "\n");
+  char instruction;
+  int fileVer;
+  struct entry * clienCurr = clienManHead;
+  int currFD;
+  char * currFile;
+  while(line != NULL){
+    clienCurr = clienManHead;
+    memset(checksPath, '\0', PATH_MAX);
+    sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, fileVer);
+    if(instruction == 'A' || instruction == 'M'){
+      while(clienCurr != NULL){
+        if(strcmp(clienCurr -> filePath, checksPath) == 0){
+          clienCurr -> fileVer = fileVer;
+          clienCurr -> tag = 'U';
+          break;
+        }
+        clienCurr = clienCurr -> next;
+      }
+      send(sfd, "Newf:", 5, 0);
+      len = strlen(checksPath)+1;
+      send(sfd, &len, sizeof(int), 0);
+      send(sfd, checksPath, len, 0);
+      currFD = open(checksPath, O_RDONLY);
+      len = readFile(currFD, &currFile);
+      send(sfd, &len, sizeof(int), 0);
+      send(sfd, currFile, len, 0);
+      free(currFile);
+      close(currFD);
+    } else if(instruction == 'D'){
+      //get rid of said node
+      while(clienCurr != NULL){
+        if(strcmp(clienCurr -> filePath, checksPath) == 0){
+          if(clienCurr -> prev == NULL && clienCurr -> next == NULL){
+            clienManHead = NULL;
+          } else if(clienCurr -> prev == NULL && clienCurr -> next != NULL){
+            clienCurr -> next -> prev = NULL;
+            clienManHead = clienCurr -> next;
+          } else if(clienCurr -> prev != NULL && clienCurr -> next == NULL){
+            clienCurr -> prev -> next = NULL;
+          } else{
+            clienCurr -> prev -> next = clienCurr -> next;
+            clienCurr -> next -> prev = clienCurr -> prev;
+          }
+          free(clienCurr);
+          break;
+        }
+        clienCurr = clienCurr -> next;
+      }
+    }
+  }
+  rewriteManifest(clienManHead, checksPath, manVer+1);
+
+
   return 0;
 }
 
