@@ -154,6 +154,10 @@ int main (int argc, char ** argv) {
           recv(csocket, cbuff, eb, 0); // loading the contents of the commit into said buffer
           write(cfd, cbuff, eb); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
         }
+        else if(crequest[3] == 'h') { // the push command
+          
+
+        }
       }
     return 0;
 }
