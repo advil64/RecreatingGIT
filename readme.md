@@ -40,17 +40,20 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 - Server should merely store the given commit file in the appropriate project and wait until the commit has been pushed to make the changes.
 - Server should also
 
-#### Push
-- Client will ask to push the changes in the commit in the following manner **Push:**
-- Then the name/path of the file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
-- Then the Client will send **FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
-- The server needs to append the contents of the commit file to the .History file but make sure to add the manifest version number first and then add the contents.
-- Server should first check to see if that file exists and send a 1 if it does and -1 if it doesn't
-- Server should now fetch that selected .commit file and loop through the given number of entries and wait for further instruction
-- The client will then send the instruction **Newf:** for each file that has been modified or added and needs to be sent by the client.
-- The client will now send the **length of each file path + 1** then send the **file path** and then send the **# of bytes in the file** and send the **file** itself.
+#### Push (Split into multiple steps)
+1. Client will ask to push the changes in the commit in the following manner **Push:**
+  - Then the name/path of the .Commit file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
+  - Then the Client will send **.Commit FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
+2. The server needs to **append the contents of the commit** file to the .History file but make sure to add the **manifest version** number first and then add the contents.
+3. Server should first check to see if the commit file exists and send a 1 if it does and -1 if it doesn't
+4. Server should now fetch that selected .commit file and tokenize the file by new lines, then one by one it will recieve the files from client, make sure to DELETE files tagged D from the server and DO NOT recieve those, the client will not send those files.
+  - The client will now send (M and A files) the **length of each file path + 1** then send the **file path** and then send the **# of bytes in the file** and send the **file** itself.
+5. Lastly the client will send the updated manifest with the new manifest version number and all of the file versions incremented.
+  - Client will send **Length of the Manifest Path+1** then the **Manifest File Path** then the **Number of Bytes in the Manifest File** and lastly **The Manifest File**
+  - Server needs to OVERWRITE the .Manifest the is currently there with the new Manifest file from the client which will have incremented version numbers and deleted/added entries
 
-*Destroy:* When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest:** then **NameOfProject**, then you need to follow the directions on the description.
+#### Destroy
+- When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest:** then **NameOfProject**, then you need to follow the directions on the description.
 
 *Check:* This command is merely to see if a given project exists on the server. The client will will ask the following **Chec:** then **NameOfProject** and the server should return a 1 is the project exists and a -1 if the project does not exist.
 
