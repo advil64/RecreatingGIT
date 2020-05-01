@@ -168,6 +168,14 @@ int main (int argc, char ** argv) {
           else { // the file exists!
             send(csocket, &manSuc, sizeof(int), 0);
           }
+          char * projDir;
+          projDir = strtok(commfp, "."); // getting the project directory!
+          char histfp[PATH_MAX]; // file path of the projects history
+          memset(histfp, '\0', PATH_MAX); // setting everything to null terminator
+          strcpy(histfp, projDir); // adding projdirectory part to history file path
+          strcat(histfp, ".History"); // adding history part to history file path
+
+
 
 
 
@@ -181,15 +189,20 @@ int main (int argc, char ** argv) {
 
 int creator (char * name) { // will see if the name of the project is there or not, whatever
     char manPath[PATH_MAX];
+    char hisPath[PATH_MAX];
     char newMan[1] = {'1'};
     memset(manPath, '\0', PATH_MAX);
+    memset(hisPath, '\0', PATH_MAX);
     strcpy(manPath, name);
+    strcpy(hisPath, name);
     strcat(manPath, "/.Manifest");
+    strcat(hisPath, "/.History" );
     int mfd; // manpage file descriptor
     DIR * proj = opendir(name);
-    if (proj == NULL) { // the directory does not exist in this world
+    if (!proj) { // the directory does not exist in this world
       mkdir(name, S_IRWXU); // makes the directory
       mfd = open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
+      open(hisPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates the history in the directory also
       write(mfd, newMan, 1);
       return 1;
     }
@@ -200,7 +213,7 @@ int creator (char * name) { // will see if the name of the project is there or n
 
 int checkers (char * name) { // almost like the opposite of create in my opinion, check to see if project exists!
   DIR * proj = opendir(name);
-  if(proj == NULL) { // project doesnt exist!
+  if(!proj) { // project doesnt exist!
     return -1;
   }
   else {
