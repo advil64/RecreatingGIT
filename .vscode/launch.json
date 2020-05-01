@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/WTF",
-            "args": ["add", "exampleProject", "test6.txt"],
+            "args": ["checkout", "exampleProject"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
