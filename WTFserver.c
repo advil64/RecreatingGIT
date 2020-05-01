@@ -13,10 +13,6 @@
 #include <signal.h>
 #include <limits.h>
 
-struct projNode { // this is a node that holds the project name and what not
-    char * projName;
-    struct projNode * next;
-};
 
 int creator (char * name);
 int checkers (char * name);
@@ -121,7 +117,6 @@ int main (int argc, char ** argv) {
           DIR * projDirec = opendir(pject);
           int numfiles; // number of files within said project
           numfiles = traverser(projDirec, 0, 100, pject);
-          numfiles = numfiles; // has to account for array indexes!
           send(csocket, &numfiles, sizeof(int), 0); // send client number of files
           int i = 0;
           int len = 0;
@@ -143,6 +138,25 @@ int main (int argc, char ** argv) {
             }
             i++;
           }
+        }
+        else if(crequest[3] == 'm') { // commit!!
+          int fps; // the file path size including null terminator
+          int cfd; // file descriptor for the commit file that will be given to us
+          int eb; // expected bytes for the committ
+          recv(csocket, &fps, sizeof(int), 0); // get file path size including null from client and store into fps
+          char fcomm[fps]; // making char array that the file path will be loaded into!
+          memset(fcomm, '\0', fps); // setting everything to null terminator beforehand
+          recv(csocket, fcomm, fps, 0); // getting the actual file path from the client, includes the hashcode
+          cfd = open(fcomm, O_CREAT); // making the commit file in the proper directory
+          recv(csocket, &eb, sizeof(int), 0); // getting number of bytes contained in committ
+          char cbuff[eb]; // making a buffer for the commit, based on bytes in it
+          memset(cbuff, '\0', eb); // setting everything in buffer to null terminator
+          recv(csocket, cbuff, eb, 0); // loading the contents of the commit into said buffer
+          write(cfd, cbuff, eb); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
+        }
+        else if(crequest[3] == 'h') { // the push command
+          
+
         }
       }
     return 0;
