@@ -155,8 +155,16 @@ int main (int argc, char ** argv) {
           write(cfd, cbuff, eb); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
         }
         else if(crequest[3] == 'h') { // the push command
+          char fPath[PATH_MAX]; // path of respective files to be worked upon!
           int filePathSize; // file path size including null terminator
           int fcd; // file descriptor of commit
+          int md; // manifest file descriptor
+          int hd; // file descriptor of history
+          int mfv; // manifest file version
+          char * comBuf; // the buffer file thatll hold the bytes in the commit!
+          char * manBuf; // the buffer thatll hold the bytes in the manifest
+          int nBytesM;
+          int nBytesC; // number of bytes in the buffer!
           recv(csocket, &filePathSize, sizeof(int), 0);
           char commfp[filePathSize]; // initializing the buffet thatll hold the file path to the specific commit
           memset(commfp, '\0', filePathSize); // setting them all to 0
@@ -168,18 +176,21 @@ int main (int argc, char ** argv) {
           else { // the file exists!
             send(csocket, &manSuc, sizeof(int), 0);
           }
+          nBytesC = fyleBiter(fcd, &comBuf); // storing the commit into the buffer 
           char * projDir;
           projDir = strtok(commfp, "."); // getting the project directory!
           char histfp[PATH_MAX]; // file path of the projects history
           memset(histfp, '\0', PATH_MAX); // setting everything to null terminator
           strcpy(histfp, projDir); // adding projdirectory part to history file path
           strcat(histfp, ".History"); // adding history part to history file path
-
-
-
-
-
-
+          char manfp[PATH_MAX]; // creating file path for manifest
+          memset(manfp, '\0', PATH_MAX); // presetting everything in buffer to null terminator
+          strcpy(manfp, projDir); // setting project/ to file path
+          strcat(manfp, ".Manifest"); // adding the .Manifest file to it;
+          md = open(manfp, O_RDONLY); // open the manifest
+          nBytesM = fyleBiter(md, &manBuf); // loading manifest into the buffer
+          sprintf(manBuf, "%d\n", &mfv); // getting project version from manifest buffer
+          
 
         }
       }
