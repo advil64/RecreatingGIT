@@ -1,6 +1,10 @@
 # Recreating GIT AsstLast
 This is the last assignment in CS 214 for the spring semester of 2020. Git is a a popular current iteration of a series of version control systems. Most large, complex software projects are coded using version control. Version control can be very helpful when working on a single set of source code that multiple people are contributing to by making sure that everyone is working on the same version of the code. If people are working on code in physically separate locations, it is entirely possible that two different people have edited the same original code in two ways that are incompatible with each other. A versioning control system would not allow two different versions of the same file to exist in its central repository, enforcing that any changes made to a file are seen by everyone before they can submit additional changes to the repository.
 
+## Testing Procedure
+
+1. First test the create 
+
 ## Server Functions
 
 ### Requests From Client
@@ -34,11 +38,13 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 - Then the name/path of the file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
 - Then the Client will send **FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
 - Server should merely store the given commit file in the appropriate project and wait until the commit has been pushed to make the changes.
+- Server should also
 
 #### Push
 - Client will ask to push the changes in the commit in the following manner **Push:**
 - Then the name/path of the file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
 - Then the Client will send **FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
+- The server needs to append the contents of the commit file to the .History file but make sure to add the manifest version number first and then add the contents.
 - Server should first check to see if that file exists and send a 1 if it does and -1 if it doesn't
 - Server should now fetch that selected .commit file and loop through the given number of entries and wait for further instruction
 - The client will then send the instruction **Newf:** for each file that has been modified or added and needs to be sent by the client.

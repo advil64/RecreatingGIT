@@ -167,7 +167,7 @@ int checkout(char * projName){
   }
 
   //we're good to go on the client side, we need to communicate with the server now
-  printf("Attempting to connect to server...");
+  printf("Attempting to connect to server...\n");
   if(connectToServer()){
     printf("We're having difficulties connecting to the server at the given IP address and port.\n");
     return 1;
@@ -175,8 +175,9 @@ int checkout(char * projName){
 
   //now that we connected, we need to ask server for the project
   send(sfd, "Proj:", 5, 0);
-  //send(sfd, strlen(projName)+1, sizeof(int), 0);
-  send(sfd, projName, strlen(projName)+1, 0);
+  int len = strlen(projName)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, projName, len, 0);
   recv(sfd, &numOfFiles, sizeof(int), 0);
 
   //loop through the files and write them one by one
@@ -782,7 +783,6 @@ int writeFile(char * path){
   DIR *myDirec;
   //loop through and get all the subdirectories
   while(next != NULL){
-    strcat(appendageString, "/");
     strcat(appendageString, line);
     //check is subdirectory exists
     myDirec = opendir(appendageString);
@@ -792,30 +792,32 @@ int writeFile(char * path){
       free(myDirec);
     }
     //traverse
-    free(line);
     line = next;
-    free(next);
     next = strtok(NULL, "\n");
+    strcat(appendageString, "/");
   }
+  strcat(appendageString, line);
   //we would need to retrieve the file from the server and add it to the manifest
-  int fileFD = open(path, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  int fileFD = open(appendageString, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   //follow protocol to retrieve the selected file from the server
   send(sfd, "File:", 5, 0);
-  int len = strlen(path)+1;
+  int len = strlen(appendageString)+1;
   send(sfd, &len, sizeof(int), 0);
-  send(sfd, path, len, 0);
+  send(sfd, appendageString, len, 0);
   recv(sfd, &fileSize, sizeof(int), 0);
   if(fileSize < 0){
     printf("The project/file you are looking for does not exist.\n");
     return 1;
   }
-  serverFile = (char *)malloc((fileSize+1)*sizeof(char));
+  serverFile = (char *)malloc((fileSize)*sizeof(char));
   memset(serverFile, '\0', fileSize);
-  recv(sfd, serverFile, fileSize, 0);
-  write(fileFD, serverFile, fileSize);
+  len = 0;
+  do {
+    len += recv(sfd, serverFile+len, fileSize-len, 0);
+  }while(len < fileSize);
+  write(fileFD, serverFile, fileSize-1);
   //frees and closes
   close(fileFD);
-  close(sfd);
   free(serverFile);
   return 0;
 }
@@ -1155,7 +1157,7 @@ int push(char * projName){
   while(line != NULL){
     clienCurr = clienManHead;
     memset(checksPath, '\0', PATH_MAX);
-    sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, fileVer);
+    sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, &fileVer);
     if(instruction == 'A' || instruction == 'M'){
       while(clienCurr != NULL){
         if(strcmp(clienCurr -> filePath, checksPath) == 0){

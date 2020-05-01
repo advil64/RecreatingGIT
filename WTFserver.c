@@ -13,10 +13,6 @@
 #include <signal.h>
 #include <limits.h>
 
-struct projNode { // this is a node that holds the project name and what not
-    char * projName;
-    struct projNode * next;
-};
 
 int creator (char * name);
 int checkers (char * name);
@@ -48,89 +44,115 @@ int main (int argc, char ** argv) {
     serveraddy.sin_addr.s_addr = INADDR_ANY;
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
     listen(lsocket, 0); // has 0 clients on backlog
-    csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize);
-    send(csocket, sCon, sizeof(sCon), 0);
-    recv(csocket, &crequest, sizeof(crequest), 0);
-    printf("The client has requested the server to: %s", crequest);
-    if (crequest[1] == 'r') { // this means you know you have to create the project (Will come in as Crea:)
-      int projLen;
-      recv(csocket, &projLen, sizeof(int), 0);
-      char projName[projLen];
-      int creRet; // what creator returns!
-      memset(projName, '\0', projLen);
-      recv(csocket, &projName, sizeof(projName), 0);
-      creRet = creator(projName);
-      if (creRet == 1) { // the file was created successfully
-      send(csocket, &manSuc, sizeof(int), 0); // send 1 to the client
+    while (((csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize)))) {
+      send(csocket, sCon, sizeof(sCon), 0);
+      recv(csocket, &crequest, sizeof(crequest), 0);
+      printf("The client has requested the server to: %s\n", crequest);
+      if (crequest[3] == 'a') { // this means you know you have to create the project (Will come in as Crea:)
+        int projLen;
+        recv(csocket, &projLen, sizeof(int), 0);
+        char projName[projLen];
+        int creRet; // what creator returns!
+        memset(projName, '\0', projLen);
+        recv(csocket, &projName, sizeof(projName), 0);
+        creRet = creator(projName);
+        if (creRet == 1) { // the file was created successfully
+          send(csocket, &manSuc, sizeof(int), 0); // send 1 to the client
+        }
+        else { // file already existed yo
+          send(csocket, &manFail, sizeof(int), 0);
+        }
       }
-      else { // file already existed yo
-        send(csocket, &manFail, sizeof(int), 0);
-      }
-    }
       else if(crequest[0] == 'F') { // FILE:Path command
-        int numBytes; // the number of bytes in a file
-        int pfd; // file descriptor for Path
-        int pathSize;
-        recv(csocket, &pathSize, sizeof(int), 0);
-        char pathName[pathSize]; // the path where the file to be opened resides
-        char * fileBuf; // storing bytes in a file
-        memset(pathName, '\0', pathSize);
-        recv(csocket, &pathName, sizeof(pathName), 0);
-        pfd = open(pathName, O_RDONLY);
-        if(pfd == -1) {
-          send(csocket, &manFail, sizeof(int), 0);
+          int numBytes; // the number of bytes in a file
+          int pfd; // file descriptor for Path
+          int pathSize;
+          recv(csocket, &pathSize, sizeof(int), 0);
+          char pathName[pathSize]; // the path where the file to be opened resides
+          char * fileBuf; // storing bytes in a file
+          memset(pathName, '\0', pathSize);
+          recv(csocket, &pathName, sizeof(pathName), 0);
+          pfd = open(pathName, O_RDONLY);
+          if(pfd == -1) {
+            send(csocket, &manFail, sizeof(int), 0);
+          }
+          numBytes = fyleBiter(pfd, &fileBuf);
+          send(csocket,&numBytes, sizeof(int), 0);
+          send(csocket, fileBuf, strlen(fileBuf) + 1, 0);
         }
-        numBytes = fyleBiter(pfd, &fileBuf);
-        send(csocket,&numBytes, sizeof(int), 0);
-        send(csocket, fileBuf, strlen(fileBuf) + 1, 0);
-      }
-      else if(crequest[0] == 'D') { // destroying a directory!!
-        char dName[30]; // name of
-        memset(dName, '\0', 30);
-        recv(csocket, &dName, sizeof(dName), 0); // getting directory to be DESTROYED
-        DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
-        destroyer(myDirec, dName);
-        char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
-        send(csocket, success, sizeof(success), 0);
-      }
-      else if (crequest[1] == 'h') { // checks to see if file exists
-        int returnstat;
-        int fileNameS;
-        recv(csocket, &fileNameS, sizeof(int), 0);
-        char project[fileNameS];
-        memset(project, '\0', fileNameS);
-        recv(csocket, &project, sizeof(project), 0);
-        returnstat = checkers(project);
-        if(returnstat == 1) { // success!
-          send(csocket, &manSuc, sizeof(int), 0);
+        else if(crequest[0] == 'D') { // destroying a directory!!
+          char dName[30]; // name of
+          memset(dName, '\0', 30);
+          recv(csocket, &dName, sizeof(dName), 0); // getting directory to be DESTROYED
+          DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
+          destroyer(myDirec, dName);
+          char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
+          send(csocket, success, sizeof(success), 0);
         }
-        else {
-          send(csocket, &manFail, sizeof(int), 0);
+        else if (crequest[1] == 'h') { // checks to see if file exists
+          int returnstat;
+          int fileNameS;
+          recv(csocket, &fileNameS, sizeof(int), 0);
+          char project[fileNameS];
+          memset(project, '\0', fileNameS);
+          recv(csocket, &project, sizeof(project), 0);
+          returnstat = checkers(project);
+          if(returnstat == 1) { // success!
+            send(csocket, &manSuc, sizeof(int), 0);
+          }
+          else {
+            send(csocket, &manFail, sizeof(int), 0);
+          }
         }
-      }
-      else if(crequest[3] == 'j') { // Proj: protocol
-        files = (char **) malloc(100 * sizeof(char *));
-        char * fileboof; // buffer to store file into
-        int nbytes; // number of bytes in a file
-        int lenProjName; // length of project name
-        int bfg; // file descriptors for each file!
-        recv(csocket, &lenProjName, sizeof(int), 0); // getting lentgh of proj name + 1 from client
-        char pject[lenProjName]; // making buffer
-        memset(pject, '\0', lenProjName); // presetting it beforehand
-        recv(csocket, &pject, sizeof(pject), 0); // getting project name from client
-        DIR * projDirec = opendir(pject);
-        int numfiles; // number of files within said project
-        numfiles = traverser(projDirec, 0, 100, pject);
-        numfiles = numfiles + 1; // has to account for array indexes!
-        send(csocket, &numfiles, sizeof(int), 0); // send client number of files
-        int i = 0;
-        while (i < numfiles) { // traverse files array
-          send(csocket, files[i], strlen(files[i]) + 1, 0); // send path of file
-          bfg = open(files[i], O_RDONLY); // open the file
-          nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
-          send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
-          send(csocket, fileboof, strlen(fileboof) + 1, 0); // sending buffer to client
-          i++;
+        else if(crequest[3] == 'j') { // Proj: protocol
+          files = (char **) malloc(100 * sizeof(char *));
+          char * fileboof; // buffer to store file into
+          int nbytes; // number of bytes in a file
+          int lenProjName; // length of project name
+          int bfg; // file descriptors for each file!
+          recv(csocket, &lenProjName, sizeof(int), 0); // getting lentgh of proj name + 1 from client
+          char pject[lenProjName]; // making buffer
+          memset(pject, '\0', lenProjName); // presetting it beforehand
+          recv(csocket, &pject, lenProjName, 0); // getting project name from client
+          DIR * projDirec = opendir(pject);
+          int numfiles; // number of files within said project
+          numfiles = traverser(projDirec, 0, 100, pject);
+          send(csocket, &numfiles, sizeof(int), 0); // send client number of files
+          int i = 0;
+          int len = 0;
+          char tempPath[PATH_MAX];
+          while (i < numfiles) { // traverse files array
+            len = strlen(files[i]) + 1;
+            send(csocket, &len, sizeof(int), 0);
+            send(csocket, files[i], len, 0); // send path of file
+            recv(csocket, tempPath, 5, 0);
+            recv(csocket, &len, sizeof(int), 0);
+            recv(csocket, tempPath, len, 0);
+            bfg = open(files[i], O_RDONLY); // open the file
+            nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
+            send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
+            printf("%s\n", fileboof);
+            len = 0;
+            while(len < nbytes) {
+              len += send(csocket, fileboof + len, nbytes - len, 0); // sending buffer to client
+            }
+            i++;
+          }
+        }
+        else if(crequest[3] == 'm') { // commit!!
+          int fps; // the file path size including null terminator
+          int cfd; // file descriptor for the commit file that will be given to us
+          int eb; // expected bytes for the committ
+          recv(csocket, &fps, sizeof(int), 0); // get file path size including null from client and store into fps
+          char fcomm[fps]; // making char array that the file path will be loaded into!
+          memset(fcomm, '\0', fps); // setting everything to null terminator beforehand
+          recv(csocket, fcomm, fps, 0); // getting the actual file path from the client, includes the hashcode
+          cfd = open(fcomm, O_CREAT); // making the commit file in the proper directory
+          recv(csocket, &eb, sizeof(int), 0); // getting number of bytes contained in committ
+          char cbuff[eb]; // making a buffer for the commit, based on bytes in it
+          memset(cbuff, '\0', eb); // setting everything in buffer to null terminator
+          recv(csocket, cbuff, eb, 0); // loading the contents of the commit into said buffer
+          write(cfd, cbuff, eb); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
         }
       }
     return 0;
