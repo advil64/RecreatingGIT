@@ -155,7 +155,23 @@ int main (int argc, char ** argv) {
           write(cfd, cbuff, eb); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
         }
         else if(crequest[3] == 'h') { // the push command
-          
+          int filePathSize; // file path size including null terminator
+          int fcd; // file descriptor of commit
+          recv(csocket, &filePathSize, sizeof(int), 0);
+          char commfp[filePathSize]; // initializing the buffet thatll hold the file path to the specific commit
+          memset(commfp, '\0', filePathSize); // setting them all to 0
+          recv(csocket, commfp, filePathSize, 0); // getting the said file path of the commit!
+          fcd = open(commfp, O_RDONLY); // open the commit, with read only permission
+          if (fcd == -1) { // file does not exist!
+            send(csocket, &manFail, sizeof(int), 0);
+          }
+          else { // the file exists!
+            send(csocket, &manSuc, sizeof(int), 0);
+          }
+
+
+
+
 
         }
       }
