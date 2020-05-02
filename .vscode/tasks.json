@@ -35,6 +35,9 @@
 			"args": [
 				"-g",
 				"${fileDirname}/WTFserver.c",
+				"-Wall",
+				"-Werror",
+				"-fsanitize=address",
 				"-lssl",
 				"-lcrypto",
 				"-o",
