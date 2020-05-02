@@ -197,8 +197,16 @@ int main (int argc, char ** argv) {
           hd = open(histfp, O_RDWR); // opening the history with the 
           write(hd, pvBUF, strlen(pvBUF)); // writing the manifest version number to the history
           write(hd, comBuf, strlen(comBuf)); // writing the commit to the history!
+          while(projDir != NULL){
+            projDir = strtok(NULL, ".");
+          }
           char * line; // the particular line in the commit
-          line = strtok(comBuf, "\n"); // tokenizing it by new line
+          char * commCopy = malloc(strlen(comBuf)+1);
+          memset(commCopy, '\0', strlen(comBuf)+1);
+          strcpy(commCopy, comBuf);
+          line = strtok(commCopy, "\n"); // tokenizing it by new line
+          int i = 0;
+          int x = 0;
           char instruction;
           char hash[40+1]; 
           int fileVer;
@@ -235,14 +243,23 @@ int main (int argc, char ** argv) {
             else if(instruction == 'D') { // delete file
               remove(checksPath); // we dont get anything from the client!
             }
+            strcpy(commCopy, comBuf);
+            line = strtok(commCopy, "\n");
+            while(x <= i && line != NULL){
+              line = strtok(NULL, "\n");
+              x++;
+            }
+            x = 0;
+            i++;
           }
+
           int mlen;
           int nmd; // new manifest fd
           recv(csocket, &mlen, sizeof(int), MSG_WAITALL);
           char mP[mlen]; // manifest path
           memset(mP, '\0', mlen);
           recv(csocket, mP, mlen, MSG_WAITALL); // populates manifest path
-          nmd = open(mP, O_TRUNC, O_RDWR); // open manifest but also clear it and give read write permission
+          nmd = open(mP, O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR); // open manifest but also clear it and give read write permission
           int mbytes; // number of bytes in manifest
           recv(csocket, &mbytes, sizeof(int), MSG_WAITALL);
           char manBoof[mbytes];
@@ -361,16 +378,16 @@ int writeFile(char * path){
   /*line: holds the part of the string to append, next is used to make sure that we do not mkdir the final
   piece wich is the file, appendage string holds the parts, file size stores the number of bytes to be read
   server file holds the file that is retrieved from the server*/
-  char * line = strtok(path, "/");
-  char * next = strtok(NULL, "\n");
+  char original[PATH_MAX];
+  strcpy(original, path);
+  char * notLine = strtok(original, "/");
+  char * next = strtok(NULL, "/");
   char appendageString[PATH_MAX];
-  int fileSize;
-  char * serverFile = NULL;
   memset(appendageString, '\0', PATH_MAX);
   DIR *myDirec;
   //loop through and get all the subdirectories
   while(next != NULL){
-    strcat(appendageString, line);
+    strcat(appendageString, notLine);
     //check is subdirectory exists
     myDirec = opendir(appendageString);
     if(!myDirec){
@@ -379,30 +396,10 @@ int writeFile(char * path){
       free(myDirec);
     }
     //traverse
-    line = next;
-    next = strtok(NULL, "\n");
+    notLine = next;
+    next = strtok(NULL, "/");
     strcat(appendageString, "/");
   }
-  strcat(appendageString, line);
-  //we would need to retrieve the file from the server and add it to the manifest
-  int fileFD = open(appendageString, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-  //follow protocol to retrieve the selected file from the server
-  send(sfd, "File:", 5, 0);
-  int len = strlen(appendageString)+1;
-  send(sfd, &len, sizeof(int), 0);
-  send(sfd, appendageString, len, 0);
-  recv(sfd, &fileSize, sizeof(int), MSG_WAITALL);
-  if(fileSize < 0){
-    printf("The project/file you are looking for does not exist.\n");
-    return 1;
-  }
-  serverFile = (char *)malloc((fileSize)*sizeof(char));
-  memset(serverFile, '\0', fileSize);
-  len = 0;
-  recv(sfd, serverFile, fileSize, MSG_WAITALL);
-  write(fileFD, serverFile, fileSize-1);
-  //frees and closes
-  close(fileFD);
-  free(serverFile);
+  strcat(appendageString, notLine);
   return 0;
 }
