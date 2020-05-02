@@ -21,6 +21,7 @@ int fyleBiter (int fd, char ** buffer);
 int mkdir(const char * pathname, mode_t mode);
 int destroyer (DIR * myDirectory, char * currDirec);
 int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec);
+int writeFile(char * path);
 
 char ** files; // global variable that holds all the files within a directory!
 
@@ -213,6 +214,7 @@ int main (int argc, char ** argv) {
               char fpName[fplen]; // creating buffer for file path
               memset(fpName, '\0', fplen);
               recv(csocket, fpName, fplen, MSG_WAITALL);
+              writeFile(fpName);
               currFD = open(fpName, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR); // create the file with read and write permissions
               recv(csocket, &byter, sizeof(int), MSG_WAITALL); // getting bytes in file
               char fb[byter]; // buffer for the file
@@ -353,4 +355,54 @@ int traverser (DIR * myDirectory, int count, int currSize, char * currDirec){ //
     }
   }
   return count; //return the current count
+}
+
+int writeFile(char * path){
+  /*line: holds the part of the string to append, next is used to make sure that we do not mkdir the final
+  piece wich is the file, appendage string holds the parts, file size stores the number of bytes to be read
+  server file holds the file that is retrieved from the server*/
+  char * line = strtok(path, "/");
+  char * next = strtok(NULL, "\n");
+  char appendageString[PATH_MAX];
+  int fileSize;
+  char * serverFile = NULL;
+  memset(appendageString, '\0', PATH_MAX);
+  DIR *myDirec;
+  //loop through and get all the subdirectories
+  while(next != NULL){
+    strcat(appendageString, line);
+    //check is subdirectory exists
+    myDirec = opendir(appendageString);
+    if(!myDirec){
+      mkdir(appendageString, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    } else{
+      free(myDirec);
+    }
+    //traverse
+    line = next;
+    next = strtok(NULL, "\n");
+    strcat(appendageString, "/");
+  }
+  strcat(appendageString, line);
+  //we would need to retrieve the file from the server and add it to the manifest
+  int fileFD = open(appendageString, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
+  //follow protocol to retrieve the selected file from the server
+  send(sfd, "File:", 5, 0);
+  int len = strlen(appendageString)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, appendageString, len, 0);
+  recv(sfd, &fileSize, sizeof(int), MSG_WAITALL);
+  if(fileSize < 0){
+    printf("The project/file you are looking for does not exist.\n");
+    return 1;
+  }
+  serverFile = (char *)malloc((fileSize)*sizeof(char));
+  memset(serverFile, '\0', fileSize);
+  len = 0;
+  recv(sfd, serverFile, fileSize, MSG_WAITALL);
+  write(fileFD, serverFile, fileSize-1);
+  //frees and closes
+  close(fileFD);
+  free(serverFile);
+  return 0;
 }
