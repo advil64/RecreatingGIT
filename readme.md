@@ -38,7 +38,6 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 - Then the name/path of the file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
 - Then the Client will send **FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
 - Server should merely store the given commit file in the appropriate project and wait until the commit has been pushed to make the changes.
-- Server should also
 
 #### Push (Split into multiple steps)
 1. Client will ask to push the changes in the commit in the following manner **Push:**
@@ -86,7 +85,7 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 * [x] Writes the finalized linked list back into the client's .Manifest file with the new manifest version number reflecting the server's manifest number
 * [x] Frees the memory allocated for linked lists and closes file descriptors from the client's update, conflict and manifest
 * [x] Get the version number from the server rather than pulling the whole server manifest
-* [ ] Set the tags for the manifest entries to '\0'
+* [ ] Set the tags for the manifest entries to 'U'
 
 ### Checkout
 * [ ] Checks to see if the project already exists locally, if the configure was not run yet, client is unable to connect to server, and if the project exists on the server

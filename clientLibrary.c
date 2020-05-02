@@ -38,7 +38,7 @@ int create(char * projName){
   send(sfd, &len, sizeof(int), 0);
   send(sfd, projName, strlen(projName)+1, 0);
   int fileVer = 0;
-  recv(sfd, &fileVer, sizeof(int), 0);
+  recv(sfd, &fileVer, sizeof(int), MSG_WAITALL);
   if(fileVer < 0){
     printf("Project already exists on the server.\n");
     close(sfd);
@@ -178,13 +178,13 @@ int checkout(char * projName){
   int len = strlen(projName)+1;
   send(sfd, &len, sizeof(int), 0);
   send(sfd, projName, len, 0);
-  recv(sfd, &numOfFiles, sizeof(int), 0);
+  recv(sfd, &numOfFiles, sizeof(int), MSG_WAITALL);
 
   //loop through the files and write them one by one
   for(i = 0; i < numOfFiles; i++){
     memset(path, '\0', PATH_MAX);
-    recv(sfd, &pathLength, sizeof(int), 0);
-    recv(sfd, path, pathLength, 0);
+    recv(sfd, &pathLength, sizeof(int), MSG_WAITALL);
+    recv(sfd, path, pathLength, MSG_WAITALL);
     writeFile(path);
   }
   return 0;
@@ -277,6 +277,7 @@ int add(char * projName, char * filePath){
 
 /* Function to connect to the server on the client side (copied from Francisco's lecture)*/
 int connectToServer(){
+  printf("Attempting to connect to the server...\n");
   char message[7];
   //call the read configure file to find the IP and port
   if(readConf()){
@@ -298,14 +299,12 @@ int connectToServer(){
   serverAddress.sin_family = AF_INET;
   serverAddress.sin_port = htons(port);
   bcopy((char *)result->h_addr_list[0],(char *)&serverAddress.sin_addr.s_addr, result->h_length);
-  if(connect(sfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress))){
-    return 1;
-  } else{
-    printf("Client has successfully connected to the server.\n");
-    recv(sfd, message, 7, 0);
-    printf("%s", message);
-    return 0;
+  while(connect(sfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress))){
+    printf("Connection unsuccessful retrying...\n");
+    sleep(3);
   }
+  printf("Client has successfully connected to the server.\n");
+  recv(sfd, message, 7, MSG_WAITALL);
   return 0;
 }
 
@@ -369,14 +368,14 @@ int update(char * projName){
   int len = strlen(checksPath)+1;
   send(sfd, &len, sizeof(int), 0);
   send(sfd, checksPath, len, 0);
-  recv(sfd, &servManSize, sizeof(int), 0);
+  recv(sfd, &servManSize, sizeof(int), MSG_WAITALL);
   if(servManSize < 0){
     printf("The project you are looking for does not exist.\n");
     return 1;
   }
   servMan = (char *)malloc((servManSize)*sizeof(char));
   memset(servMan, '\0', servManSize);
-  recv(sfd, servMan, servManSize, 0);
+  recv(sfd, servMan, servManSize, MSG_WAITALL);
 
   
   /* clientman -> holds client's manifest... servman -> holds server's manifest now compare the two
@@ -804,7 +803,7 @@ int writeFile(char * path){
   int len = strlen(appendageString)+1;
   send(sfd, &len, sizeof(int), 0);
   send(sfd, appendageString, len, 0);
-  recv(sfd, &fileSize, sizeof(int), 0);
+  recv(sfd, &fileSize, sizeof(int), MSG_WAITALL);
   if(fileSize < 0){
     printf("The project/file you are looking for does not exist.\n");
     return 1;
@@ -812,9 +811,7 @@ int writeFile(char * path){
   serverFile = (char *)malloc((fileSize)*sizeof(char));
   memset(serverFile, '\0', fileSize);
   len = 0;
-  do {
-    len += recv(sfd, serverFile+len, fileSize-len, 0);
-  }while(len < fileSize);
+  recv(sfd, serverFile, fileSize, MSG_WAITALL);
   write(fileFD, serverFile, fileSize-1);
   //frees and closes
   close(fileFD);
@@ -878,7 +875,7 @@ int commit(char * projName){
   int len = strlen(checksPath)+1;
   send(sfd, &len, sizeof(int), 0);
   send(sfd, checksPath, strlen(checksPath), 0);
-  recv(sfd, &servManSize, sizeof(int), 0);
+  recv(sfd, &servManSize, sizeof(int), MSG_WAITALL);
   if(servManSize < 0){
     printf("The project you are looking for does not exist.\n");
     close(sfd);
@@ -886,7 +883,7 @@ int commit(char * projName){
   }
   servMan = (char *)malloc((servManSize+1)*sizeof(char));
   memset(servMan, '\0', servManSize);
-  recv(sfd, servMan, servManSize, 0);
+  recv(sfd, servMan, servManSize, MSG_WAITALL);
 
   //more fail checks
   memset(checksPath, '\0', PATH_MAX);
@@ -1127,7 +1124,7 @@ int push(char * projName){
   send(sfd, &len, sizeof(int), 0);
   send(sfd, checksPath, len, 0);
   int status;
-  recv(sfd, &status, sizeof(int), 0);
+  recv(sfd, &status, sizeof(int), MSG_WAITALL);
   if(status < 0){
     printf("Please commit before you try to push to the server.\n");
     close(sfd);
@@ -1167,7 +1164,7 @@ int push(char * projName){
         }
         clienCurr = clienCurr -> next;
       }
-      send(sfd, "Newf:", 5, 0);
+      //send(sfd, "Newf:", 5, 0);
       len = strlen(checksPath)+1;
       send(sfd, &len, sizeof(int), 0);
       send(sfd, checksPath, len, 0);
