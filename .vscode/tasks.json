@@ -36,7 +36,6 @@
 				"-g",
 				"${fileDirname}/WTFserver.c",
 				"-lssl",
-				"-fsanitize=address",
 				"-lcrypto",
 				"-o",
 				"${fileDirname}/${fileBasenameNoExtension}"

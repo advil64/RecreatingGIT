@@ -46,16 +46,16 @@ int main (int argc, char ** argv) {
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
     listen(lsocket, 0); // has 0 clients on backlog
     while (((csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize)))) {
-      send(csocket, sCon, sizeof(sCon), 0);
-      recv(csocket, &crequest, sizeof(crequest), 0);
+      send(csocket, sCon, 7, 0);
+    while (recv(csocket, &crequest, 5, 0)) {
       printf("The client has requested the server to: %s\n", crequest);
       if (crequest[3] == 'a') { // this means you know you have to create the project (Will come in as Crea:)
-        int projLen;
-        recv(csocket, &projLen, sizeof(int), 0);
+        int projLen = 0;
+        recv(csocket, &projLen, sizeof(int), MSG_WAITALL);
         char projName[projLen];
         int creRet; // what creator returns!
         memset(projName, '\0', projLen);
-        recv(csocket, &projName, sizeof(projName), 0);
+        recv(csocket, projName, projLen, MSG_WAITALL);
         creRet = creator(projName);
         if (creRet == 1) { // the file was created successfully
           send(csocket, &manSuc, sizeof(int), 0); // send 1 to the client
@@ -72,7 +72,7 @@ int main (int argc, char ** argv) {
           char pathName[pathSize]; // the path where the file to be opened resides
           char * fileBuf; // storing bytes in a file
           memset(pathName, '\0', pathSize);
-          recv(csocket, &pathName, sizeof(pathName), 0);
+          recv(csocket, &pathName, pathSize, MSG_WAITALL);
           pfd = open(pathName, O_RDONLY);
           if(pfd == -1) {
             send(csocket, &manFail, sizeof(int), 0);
@@ -84,7 +84,7 @@ int main (int argc, char ** argv) {
         else if(crequest[0] == 'D') { // destroying a directory!!
           char dName[30]; // name of
           memset(dName, '\0', 30);
-          recv(csocket, &dName, sizeof(dName), 0); // getting directory to be DESTROYED
+          recv(csocket, &dName, sizeof(dName), MSG_WAITALL); // getting directory to be DESTROYED
           DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
           destroyer(myDirec, dName);
           char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
@@ -93,10 +93,10 @@ int main (int argc, char ** argv) {
         else if (crequest[1] == 'h') { // checks to see if file exists
           int returnstat;
           int fileNameS;
-          recv(csocket, &fileNameS, sizeof(int), 0);
+          recv(csocket, &fileNameS, sizeof(int), MSG_WAITALL);
           char project[fileNameS];
           memset(project, '\0', fileNameS);
-          recv(csocket, &project, sizeof(project), 0);
+          recv(csocket, &project, sizeof(project), MSG_WAITALL);
           returnstat = checkers(project);
           if(returnstat == 1) { // success!
             send(csocket, &manSuc, sizeof(int), 0);
@@ -111,10 +111,10 @@ int main (int argc, char ** argv) {
           int nbytes; // number of bytes in a file
           int lenProjName; // length of project name
           int bfg; // file descriptors for each file!
-          recv(csocket, &lenProjName, sizeof(int), 0); // getting lentgh of proj name + 1 from client
+          recv(csocket, &lenProjName, sizeof(int), MSG_WAITALL); // getting lentgh of proj name + 1 from client
           char pject[lenProjName]; // making buffer
           memset(pject, '\0', lenProjName); // presetting it beforehand
-          recv(csocket, &pject, lenProjName, 0); // getting project name from client
+          recv(csocket, &pject, lenProjName, MSG_WAITALL); // getting project name from client
           DIR * projDirec = opendir(pject);
           int numfiles; // number of files within said project
           numfiles = traverser(projDirec, 0, 100, pject);
@@ -126,9 +126,9 @@ int main (int argc, char ** argv) {
             len = strlen(files[i]) + 1;
             send(csocket, &len, sizeof(int), 0);
             send(csocket, files[i], len, 0); // send path of file
-            recv(csocket, tempPath, 5, 0);
-            recv(csocket, &len, sizeof(int), 0);
-            recv(csocket, tempPath, len, 0);
+            recv(csocket, tempPath, 5, MSG_WAITALL);
+            recv(csocket, &len, sizeof(int), MSG_WAITALL);
+            recv(csocket, tempPath, len, MSG_WAITALL);
             bfg = open(files[i], O_RDONLY); // open the file
             nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
             send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
@@ -144,32 +144,29 @@ int main (int argc, char ** argv) {
           int fps; // the file path size including null terminator
           int cfd; // file descriptor for the commit file that will be given to us
           int eb; // expected bytes for the committ
-          recv(csocket, &fps, sizeof(int), 0); // get file path size including null from client and store into fps
+          recv(csocket, &fps, sizeof(int), MSG_WAITALL); // get file path size including null from client and store into fps
           char fcomm[fps]; // making char array that the file path will be loaded into!
           memset(fcomm, '\0', fps); // setting everything to null terminator beforehand
-          recv(csocket, fcomm, fps, 0); // getting the actual file path from the client, includes the hashcode
-          cfd = open(fcomm, O_CREAT); // making the commit file in the proper directory
-          recv(csocket, &eb, sizeof(int), 0); // getting number of bytes contained in committ
+          recv(csocket, fcomm, fps, MSG_WAITALL); // getting the actual file path from the client, includes the hashcode
+          cfd = open(fcomm, O_TRUNC | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR); // making the commit file in the proper directory
+          recv(csocket, &eb, sizeof(int), MSG_WAITALL); // getting number of bytes contained in committ
           char cbuff[eb]; // making a buffer for the commit, based on bytes in it
           memset(cbuff, '\0', eb); // setting everything in buffer to null terminator
-          recv(csocket, cbuff, eb, 0); // loading the contents of the commit into said buffer
-          write(cfd, cbuff, eb); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
+          recv(csocket, cbuff, eb, MSG_WAITALL); // loading the contents of the commit into said buffer
+          write(cfd, cbuff, eb - 1); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
         }
         else if(crequest[3] == 'h') { // the push command
-          char fPath[PATH_MAX]; // path of respective files to be worked upon!
           int filePathSize; // file path size including null terminator
           int fcd; // file descriptor of commit
           int md; // manifest file descriptor
           int hd; // file descriptor of history
-          int mfv; // manifest file version
+          int mfv = 0; // manifest file version
           char * comBuf; // the buffer file thatll hold the bytes in the commit!
           char * manBuf; // the buffer thatll hold the bytes in the manifest
-          int nBytesM;
-          int nBytesC; // number of bytes in the buffer!
-          recv(csocket, &filePathSize, sizeof(int), 0);
+          recv(csocket, &filePathSize, sizeof(int), MSG_WAITALL);
           char commfp[filePathSize]; // initializing the buffet thatll hold the file path to the specific commit
           memset(commfp, '\0', filePathSize); // setting them all to 0
-          recv(csocket, commfp, filePathSize, 0); // getting the said file path of the commit!
+          recv(csocket, commfp, filePathSize, MSG_WAITALL); // getting the said file path of the commit!
           fcd = open(commfp, O_RDONLY); // open the commit, with read only permission
           if (fcd == -1) { // file does not exist!
             send(csocket, &manFail, sizeof(int), 0);
@@ -177,7 +174,7 @@ int main (int argc, char ** argv) {
           else { // the file exists!
             send(csocket, &manSuc, sizeof(int), 0);
           }
-          nBytesC = fyleBiter(fcd, &comBuf); // storing the commit into the buffer 
+          fyleBiter(fcd, &comBuf); // storing the commit into the buffer 
           char * projDir;
           projDir = strtok(commfp, "."); // getting the project directory!
           char histfp[PATH_MAX]; // file path of the projects history
@@ -189,9 +186,9 @@ int main (int argc, char ** argv) {
           strcpy(manfp, projDir); // setting project/ to file path
           strcat(manfp, ".Manifest"); // adding the .Manifest file to it;
           md = open(manfp, O_RDONLY); // open the manifest
-          nBytesM = fyleBiter(md, &manBuf); // loading manifest into the buffer
+          fyleBiter(md, &manBuf); // loading manifest into the buffer
           close(md);
-          sprintf(manBuf, "%d\n", mfv); // getting project version from manifest buffer
+          sscanf(manBuf, "%d\n", &mfv); // getting project version from manifest buffer
           char pvBUF[999];
           memset(pvBUF, '\0', 999);
           sprintf(pvBUF, "%d", mfv); // setting project version into the buffer
@@ -202,7 +199,7 @@ int main (int argc, char ** argv) {
           char * line; // the particular line in the commit
           line = strtok(comBuf, "\n"); // tokenizing it by new line
           char instruction;
-          char hash[SHA_DIGEST_LENGTH+1]; 
+          char hash[40+1]; 
           int fileVer;
           int currFD;
           char checksPath[PATH_MAX];
@@ -212,25 +209,25 @@ int main (int argc, char ** argv) {
             memset(checksPath, '\0', PATH_MAX);
             sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, &fileVer);
             if(instruction == 'A') {
-              recv(csocket, &fplen, sizeof(int), 0);
+              recv(csocket, &fplen, sizeof(int), MSG_WAITALL);
               char fpName[fplen]; // creating buffer for file path
               memset(fpName, '\0', fplen);
-              recv(csocket, fpName, fplen, 0);
-              currFD = open(fpName, O_CREAT, O_RDWR); // create the file with read and write permissions
-              recv(csocket, &byter, sizeof(int), 0); // getting bytes in file
+              recv(csocket, fpName, fplen, MSG_WAITALL);
+              currFD = open(fpName, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR); // create the file with read and write permissions
+              recv(csocket, &byter, sizeof(int), MSG_WAITALL); // getting bytes in file
               char fb[byter]; // buffer for the file
-              recv(csocket, fb, byter, 0);
+              recv(csocket, fb, byter, MSG_WAITALL);
               write(currFD, fb, byter);
             }
             else if(instruction == 'M') {
-              recv(csocket, &fplen, sizeof(int), 0);
+              recv(csocket, &fplen, sizeof(int), MSG_WAITALL);
               char fpName[fplen]; // creating buffer for file path
               memset(fpName, '\0', fplen);
-              recv(csocket, fpName, fplen, 0);
-              currFD = open(fpName, O_TRUNC, O_RDWR); // open the file but get rid of everything in it since its modified
-              recv(csocket, &byter, sizeof(int), 0); // getting bytes in file
+              recv(csocket, fpName, fplen, MSG_WAITALL);
+              currFD = open(fpName, O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR); // open the file but get rid of everything in it since its modified
+              recv(csocket, &byter, sizeof(int), MSG_WAITALL); // getting bytes in file
               char fb[byter]; // buffer for the file
-              recv(csocket, fb, byter, 0);
+              recv(csocket, fb, byter, MSG_WAITALL);
               write(currFD, fb, byter);
             }
             else if(instruction == 'D') { // delete file
@@ -239,19 +236,20 @@ int main (int argc, char ** argv) {
           }
           int mlen;
           int nmd; // new manifest fd
-          recv(csocket, &mlen, sizeof(int), 0);
+          recv(csocket, &mlen, sizeof(int), MSG_WAITALL);
           char mP[mlen]; // manifest path
           memset(mP, '\0', mlen);
-          recv(csocket, mP, mlen, 0); // populates manifest path
+          recv(csocket, mP, mlen, MSG_WAITALL); // populates manifest path
           nmd = open(mP, O_TRUNC, O_RDWR); // open manifest but also clear it and give read write permission
           int mbytes; // number of bytes in manifest
-          recv(csocket, &mbytes, sizeof(int), 0);
+          recv(csocket, &mbytes, sizeof(int), MSG_WAITALL);
           char manBoof[mbytes];
           memset(manBoof, '\0', mbytes);
-          recv(csocket, manBoof, mbytes, 0); // populate the manifest buffer
+          recv(csocket, manBoof, mbytes, MSG_WAITALL); // populate the manifest buffer
           write(nmd, manBoof, mbytes);
         }
       }
+    }
     return 0;
 }
 
