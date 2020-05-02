@@ -774,7 +774,7 @@ int writeFile(char * path){
   piece wich is the file, appendage string holds the parts, file size stores the number of bytes to be read
   server file holds the file that is retrieved from the server*/
   char * line = strtok(path, "/");
-  char * next = strtok(NULL, "\n");
+  char * next = strtok(NULL, "/");
   char appendageString[PATH_MAX];
   int fileSize;
   char * serverFile = NULL;
@@ -792,7 +792,7 @@ int writeFile(char * path){
     }
     //traverse
     line = next;
-    next = strtok(NULL, "\n");
+    next = strtok(NULL, "/");
     strcat(appendageString, "/");
   }
   strcat(appendageString, line);
@@ -968,6 +968,7 @@ int commit(char * projName){
   int x = 0;
   int i = 0;
   char version[strMax];
+  clienCurr = clienManHead;
   while(clienCurr != NULL){
     memset(hash, '\0', SHA_DIGEST_LENGTH+1);
     memset(hex, '\0', hashLen+1);
@@ -1163,11 +1164,11 @@ int push(char * projName){
         if(strcmp(clienCurr -> filePath, checksPath) == 0){
           clienCurr -> fileVer = fileVer;
           clienCurr -> tag = 'U';
+          strcpy(clienCurr -> fileHash, hex);
           break;
         }
         clienCurr = clienCurr -> next;
       }
-      //send(sfd, "Newf:", 5, 0);
       len = strlen(checksPath)+1;
       send(sfd, &len, sizeof(int), 0);
       send(sfd, checksPath, len, 0);
@@ -1198,10 +1199,26 @@ int push(char * projName){
         clienCurr = clienCurr -> next;
       }
     }
+    line = strtok(NULL, "\n");
   }
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Manifest");
   rewriteManifest(clienManHead, checksPath, manVer+1);
 
+  free(manBuff);
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Manifest");
+  len = strlen(checksPath) + 1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, checksPath, len, 0);
+  manFD = open(checksPath, O_RDONLY);
+  len = readFile(manFD, &manBuff);
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, manBuff, len, 0);
 
+  freeLL(clienManHead);
   return 0;
 }
 

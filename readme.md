@@ -85,11 +85,11 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 * [x] Writes the finalized linked list back into the client's .Manifest file with the new manifest version number reflecting the server's manifest number
 * [x] Frees the memory allocated for linked lists and closes file descriptors from the client's update, conflict and manifest
 * [x] Get the version number from the server rather than pulling the whole server manifest
-* [ ] Set the tags for the manifest entries to 'U'
+* [x] Set the tags for the manifest entries to 'U'
 
 ### Checkout
-* [ ] Checks to see if the project already exists locally, if the configure was not run yet, client is unable to connect to server, and if the project exists on the server
-* [ ] Asks the server for the project and clones every file in the project locally, including the manifest and others
+* [x] Checks to see if the project already exists locally, if the configure was not run yet, client is unable to connect to server, and if the project exists on the server
+* [x] Asks the server for the project and clones every file in the project locally, including the manifest and others
 
 ### Add
 * [x] Prepends the project name onto the given file name
