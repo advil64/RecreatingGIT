@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <limits.h>
+#include <openssl/sha.h>
 
 
 int creator (char * name);
@@ -189,9 +190,66 @@ int main (int argc, char ** argv) {
           strcat(manfp, ".Manifest"); // adding the .Manifest file to it;
           md = open(manfp, O_RDONLY); // open the manifest
           nBytesM = fyleBiter(md, &manBuf); // loading manifest into the buffer
-          sprintf(manBuf, "%d\n", &mfv); // getting project version from manifest buffer
-          
-
+          close(md);
+          sprintf(manBuf, "%d\n", mfv); // getting project version from manifest buffer
+          char pvBUF[999];
+          memset(pvBUF, '\0', 999);
+          sprintf(pvBUF, "%d", mfv); // setting project version into the buffer
+          strcat(pvBUF, "\n");
+          hd = open(histfp, O_RDWR); // opening the history with the 
+          write(hd, pvBUF, strlen(pvBUF)); // writing the manifest version number to the history
+          write(hd, comBuf, strlen(comBuf)); // writing the commit to the history!
+          char * line; // the particular line in the commit
+          line = strtok(comBuf, "\n"); // tokenizing it by new line
+          char instruction;
+          char hash[SHA_DIGEST_LENGTH+1]; 
+          int fileVer;
+          int currFD;
+          char checksPath[PATH_MAX];
+          int fplen;
+          int byter; 
+          while(line != NULL){
+            memset(checksPath, '\0', PATH_MAX);
+            sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, &fileVer);
+            if(instruction == 'A') {
+              recv(csocket, &fplen, sizeof(int), 0);
+              char fpName[fplen]; // creating buffer for file path
+              memset(fpName, '\0', fplen);
+              recv(csocket, fpName, fplen, 0);
+              currFD = open(fpName, O_CREAT, O_RDWR); // create the file with read and write permissions
+              recv(csocket, &byter, sizeof(int), 0); // getting bytes in file
+              char fb[byter]; // buffer for the file
+              recv(csocket, fb, byter, 0);
+              write(currFD, fb, byter);
+            }
+            else if(instruction == 'M') {
+              recv(csocket, &fplen, sizeof(int), 0);
+              char fpName[fplen]; // creating buffer for file path
+              memset(fpName, '\0', fplen);
+              recv(csocket, fpName, fplen, 0);
+              currFD = open(fpName, O_TRUNC, O_RDWR); // open the file but get rid of everything in it since its modified
+              recv(csocket, &byter, sizeof(int), 0); // getting bytes in file
+              char fb[byter]; // buffer for the file
+              recv(csocket, fb, byter, 0);
+              write(currFD, fb, byter);
+            }
+            else if(instruction == 'D') { // delete file
+              remove(checksPath); // we dont get anything from the client!
+            }
+          }
+          int mlen;
+          int nmd; // new manifest fd
+          recv(csocket, &mlen, sizeof(int), 0);
+          char mP[mlen]; // manifest path
+          memset(mP, '\0', mlen);
+          recv(csocket, mP, mlen, 0); // populates manifest path
+          nmd = open(mP, O_TRUNC, O_RDWR); // open manifest but also clear it and give read write permission
+          int mbytes; // number of bytes in manifest
+          recv(csocket, &mbytes, sizeof(int), 0);
+          char manBoof[mbytes];
+          memset(manBoof, '\0', mbytes);
+          recv(csocket, manBoof, mbytes, 0); // populate the manifest buffer
+          write(nmd, manBoof, mbytes);
         }
       }
     return 0;
