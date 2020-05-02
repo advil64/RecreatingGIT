@@ -304,7 +304,7 @@ int connectToServer(){
     sleep(3);
   }
   printf("Client has successfully connected to the server.\n");
-  recv(sfd, message, 7, MSG_WAITALL);
+  recv(sfd, message, 7, 0);
   return 0;
 }
 
@@ -874,8 +874,8 @@ int commit(char * projName){
   send(sfd, "File:", 5, 0);
   int len = strlen(checksPath)+1;
   send(sfd, &len, sizeof(int), 0);
-  send(sfd, checksPath, strlen(checksPath), 0);
-  recv(sfd, &servManSize, sizeof(int), MSG_WAITALL);
+  send(sfd, checksPath, len, 0);
+  recv(sfd, &servManSize, sizeof(int), 0);
   if(servManSize < 0){
     printf("The project you are looking for does not exist.\n");
     close(sfd);
@@ -891,13 +891,15 @@ int commit(char * projName){
   strcat(checksPath, "/.Update");
   char * updateBuff;
   int updateFD = open(checksPath, O_RDONLY);
-  int size = readFile(updateFD, &updateBuff);
-  if(size != 0){
-    printf("Please finish your updates first, then you can commit the project.\n");
-    close(updateFD);
-    close(sfd);
-    free(updateBuff);
-    return 1;
+  if(updateFD > 0){
+    int size = readFile(updateFD, &updateBuff);
+    if(size != 0){
+      printf("Please finish your updates first, then you can commit the project.\n");
+      close(updateFD);
+      close(sfd);
+      free(updateBuff);
+      return 1;
+    }
   }
   memset(checksPath, '\0', PATH_MAX);
   strcpy(checksPath, projName);
@@ -934,7 +936,7 @@ int commit(char * projName){
   memset(checksPath, '\0', PATH_MAX);
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Commit");
-  while(servCurr != NULL || clienCurr != NULL){
+  while(servCurr != NULL && clienCurr != NULL){
     if(strcmp(servCurr -> filePath, clienCurr -> filePath) == 0){
       if(strcmp(servCurr -> fileHash, clienCurr -> fileHash) != 0){
         if(servCurr -> fileVer > clienCurr -> fileVer){
@@ -976,13 +978,13 @@ int commit(char * projName){
       write(comFD, " ", 1);
       write(comFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
       write(comFD, " ", 1);
-      write(comFD, clienCurr -> fileHash, hashLen+1);
+      write(comFD, clienCurr -> fileHash, hashLen);
       write(comFD, " ", 1);
       memset(version, '\0', strMax);
       sprintf(version, "%d", (clienCurr -> fileVer));
       write(comFD, version, strlen(version));
       write(comFD, "\n", 1);
-      printf("%c %s", clienCurr -> tag, clienCurr -> filePath);
+      printf("%c %s\n", clienCurr -> tag, clienCurr -> filePath);
     } else{
       fileFD = open(clienCurr -> filePath, O_RDONLY);
       len = readFile(fileFD, &currFile);
@@ -997,15 +999,16 @@ int commit(char * projName){
         write(comFD, " ", 1);
         write(comFD, clienCurr -> filePath, strlen(clienCurr -> filePath));
         write(comFD, " ", 1);
-        write(comFD, hex, hashLen+1);
+        write(comFD, hex, hashLen);
         write(comFD, " ", 1);
         memset(version, '\0', strMax);
         sprintf(version, "%d", (clienCurr -> fileVer)+1);
         write(comFD, version, strlen(version));
         write(comFD, "\n", 1);
-        printf("%c %s", 'M', clienCurr -> filePath);
+        printf("%c %s\n", 'M', clienCurr -> filePath);
       }
     }
+    clienCurr = clienCurr -> next;
   }
 
   //load the contents of the .commit file into the buffer
@@ -1154,7 +1157,7 @@ int push(char * projName){
   while(line != NULL){
     clienCurr = clienManHead;
     memset(checksPath, '\0', PATH_MAX);
-    sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, &fileVer);
+    sscanf(line, "%c %s %s %d", &instruction, checksPath, hex, &fileVer);
     if(instruction == 'A' || instruction == 'M'){
       while(clienCurr != NULL){
         if(strcmp(clienCurr -> filePath, checksPath) == 0){
