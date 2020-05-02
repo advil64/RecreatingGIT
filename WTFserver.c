@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <limits.h>
+#include <openssl/sha.h>
 
 
 int creator (char * name);
@@ -155,8 +156,100 @@ int main (int argc, char ** argv) {
           write(cfd, cbuff, eb); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
         }
         else if(crequest[3] == 'h') { // the push command
-          
-
+          char fPath[PATH_MAX]; // path of respective files to be worked upon!
+          int filePathSize; // file path size including null terminator
+          int fcd; // file descriptor of commit
+          int md; // manifest file descriptor
+          int hd; // file descriptor of history
+          int mfv; // manifest file version
+          char * comBuf; // the buffer file thatll hold the bytes in the commit!
+          char * manBuf; // the buffer thatll hold the bytes in the manifest
+          int nBytesM;
+          int nBytesC; // number of bytes in the buffer!
+          recv(csocket, &filePathSize, sizeof(int), 0);
+          char commfp[filePathSize]; // initializing the buffet thatll hold the file path to the specific commit
+          memset(commfp, '\0', filePathSize); // setting them all to 0
+          recv(csocket, commfp, filePathSize, 0); // getting the said file path of the commit!
+          fcd = open(commfp, O_RDONLY); // open the commit, with read only permission
+          if (fcd == -1) { // file does not exist!
+            send(csocket, &manFail, sizeof(int), 0);
+          }
+          else { // the file exists!
+            send(csocket, &manSuc, sizeof(int), 0);
+          }
+          nBytesC = fyleBiter(fcd, &comBuf); // storing the commit into the buffer 
+          char * projDir;
+          projDir = strtok(commfp, "."); // getting the project directory!
+          char histfp[PATH_MAX]; // file path of the projects history
+          memset(histfp, '\0', PATH_MAX); // setting everything to null terminator
+          strcpy(histfp, projDir); // adding projdirectory part to history file path
+          strcat(histfp, ".History"); // adding history part to history file path
+          char manfp[PATH_MAX]; // creating file path for manifest
+          memset(manfp, '\0', PATH_MAX); // presetting everything in buffer to null terminator
+          strcpy(manfp, projDir); // setting project/ to file path
+          strcat(manfp, ".Manifest"); // adding the .Manifest file to it;
+          md = open(manfp, O_RDONLY); // open the manifest
+          nBytesM = fyleBiter(md, &manBuf); // loading manifest into the buffer
+          close(md);
+          sprintf(manBuf, "%d\n", mfv); // getting project version from manifest buffer
+          char pvBUF[999];
+          memset(pvBUF, '\0', 999);
+          sprintf(pvBUF, "%d", mfv); // setting project version into the buffer
+          strcat(pvBUF, "\n");
+          hd = open(histfp, O_RDWR); // opening the history with the 
+          write(hd, pvBUF, strlen(pvBUF)); // writing the manifest version number to the history
+          write(hd, comBuf, strlen(comBuf)); // writing the commit to the history!
+          char * line; // the particular line in the commit
+          line = strtok(comBuf, "\n"); // tokenizing it by new line
+          char instruction;
+          char hash[SHA_DIGEST_LENGTH+1]; 
+          int fileVer;
+          int currFD;
+          char checksPath[PATH_MAX];
+          int fplen;
+          int byter; 
+          while(line != NULL){
+            memset(checksPath, '\0', PATH_MAX);
+            sscanf(line, "%c %s %s %d", &instruction, checksPath, hash, &fileVer);
+            if(instruction == 'A') {
+              recv(csocket, &fplen, sizeof(int), 0);
+              char fpName[fplen]; // creating buffer for file path
+              memset(fpName, '\0', fplen);
+              recv(csocket, fpName, fplen, 0);
+              currFD = open(fpName, O_CREAT, O_RDWR); // create the file with read and write permissions
+              recv(csocket, &byter, sizeof(int), 0); // getting bytes in file
+              char fb[byter]; // buffer for the file
+              recv(csocket, fb, byter, 0);
+              write(currFD, fb, byter);
+            }
+            else if(instruction == 'M') {
+              recv(csocket, &fplen, sizeof(int), 0);
+              char fpName[fplen]; // creating buffer for file path
+              memset(fpName, '\0', fplen);
+              recv(csocket, fpName, fplen, 0);
+              currFD = open(fpName, O_TRUNC, O_RDWR); // open the file but get rid of everything in it since its modified
+              recv(csocket, &byter, sizeof(int), 0); // getting bytes in file
+              char fb[byter]; // buffer for the file
+              recv(csocket, fb, byter, 0);
+              write(currFD, fb, byter);
+            }
+            else if(instruction == 'D') { // delete file
+              remove(checksPath); // we dont get anything from the client!
+            }
+          }
+          int mlen;
+          int nmd; // new manifest fd
+          recv(csocket, &mlen, sizeof(int), 0);
+          char mP[mlen]; // manifest path
+          memset(mP, '\0', mlen);
+          recv(csocket, mP, mlen, 0); // populates manifest path
+          nmd = open(mP, O_TRUNC, O_RDWR); // open manifest but also clear it and give read write permission
+          int mbytes; // number of bytes in manifest
+          recv(csocket, &mbytes, sizeof(int), 0);
+          char manBoof[mbytes];
+          memset(manBoof, '\0', mbytes);
+          recv(csocket, manBoof, mbytes, 0); // populate the manifest buffer
+          write(nmd, manBoof, mbytes);
         }
       }
     return 0;
@@ -165,15 +258,20 @@ int main (int argc, char ** argv) {
 
 int creator (char * name) { // will see if the name of the project is there or not, whatever
     char manPath[PATH_MAX];
+    char hisPath[PATH_MAX];
     char newMan[1] = {'1'};
     memset(manPath, '\0', PATH_MAX);
+    memset(hisPath, '\0', PATH_MAX);
     strcpy(manPath, name);
+    strcpy(hisPath, name);
     strcat(manPath, "/.Manifest");
+    strcat(hisPath, "/.History" );
     int mfd; // manpage file descriptor
     DIR * proj = opendir(name);
-    if (proj == NULL) { // the directory does not exist in this world
+    if (!proj) { // the directory does not exist in this world
       mkdir(name, S_IRWXU); // makes the directory
       mfd = open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
+      open(hisPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates the history in the directory also
       write(mfd, newMan, 1);
       return 1;
     }
@@ -184,7 +282,7 @@ int creator (char * name) { // will see if the name of the project is there or n
 
 int checkers (char * name) { // almost like the opposite of create in my opinion, check to see if project exists!
   DIR * proj = opendir(name);
-  if(proj == NULL) { // project doesnt exist!
+  if(!proj) { // project doesnt exist!
     return -1;
   }
   else {
