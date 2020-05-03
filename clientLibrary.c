@@ -761,7 +761,12 @@ int upgrade(char * projName){
   }
   //tokenize through the updates
   char * line;
-  line = strtok(updates, "\n");
+  char * updatesCopy = malloc(strlen(updates)+1);
+  memset(updatesCopy, '\0', strlen(updatesCopy)+1);
+  strcpy(updatesCopy, updates);
+  line = strtok(updatesCopy, "\n"); // tokenizing it by new line
+  int i = 0;
+  int x = 0;
   char hash[hashLen+1];
   memset(hash, '\0', hashLen+1);
   //store the instructions
@@ -775,6 +780,14 @@ int upgrade(char * projName){
       //we need to write the file at the path in the client
       writeFile(checksPath);
     }
+    strcpy(updatesCopy, updates);
+    line = strtok(updatesCopy, "\n");
+    while(x <= i && line != NULL){
+      line = strtok(NULL, "\n");
+      x++;
+    }
+    x = 0;
+    i++;
   }
   //now we remove the .Update file from the client
   memset(checksPath, '\0', PATH_MAX);
@@ -1074,7 +1087,7 @@ int commit(char * projName){
   send(sfd, &len, sizeof(int), 0);
   send(sfd, commBuffer, len, 0);
 
-  //free you stuff
+  //free your stuff
   freeLL(clienManHead);
   freeLL(servManHead);
   free(commBuffer);

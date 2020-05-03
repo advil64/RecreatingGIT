@@ -153,6 +153,6 @@ if(strcmp(argv[1], "configure") == 0){
     exit(0);
   }
 }
-printf("Your command was successfully executed\n");
+printf("Your %s command was successfully executed.\n", argv[1]);
 return 0;
 }
