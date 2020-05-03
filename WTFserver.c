@@ -24,9 +24,9 @@ int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec);
 int writeFile(char * path);
 
 char ** files; // global variable that holds all the files within a directory!
-int lsocket; // declaring the file descriptor for our listening (server) socket
 
 int main (int argc, char ** argv) {
+    int lsocket; // declaring the file descriptor for our listening (server) socket
     int csocket; // declaring the file descriptor from the respective client socket
     int caddysize = -1;
     int portnum = atoi(argv[1]);
