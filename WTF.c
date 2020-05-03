@@ -131,6 +131,28 @@ if(strcmp(argv[1], "configure") == 0){
     printf("Unable to push the latest version of this project.\n");
     exit(0);
   }
+} else if(strcmp(argv[1], "rollback") == 0){
+  //check if there are indeed 4 arguments
+  if(argc != 4){
+    printf("Insufficient arguments.\n");
+    exit(0);
+  }
+  //connect to the server
+  connectToServer();
+  //now follow the rollback protocol
+  send(sfd, "Roll:", 5, 0);
+  int len = strlen(argv[2]) + 1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, argv[2], len, 0);
+  int version = atoi(argv[3]);
+  send(sfd, &version, sizeof(int), 0);
+  int status;
+  recv(sfd, &status, sizeof(int), MSG_WAITALL);
+  if(status < 0){
+    printf("There was an error trying to rollback your project, try again.\n");
+    exit(0);
+  }
 }
+printf("Your command was successfully executed\n");
 return 0;
 }

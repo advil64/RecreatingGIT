@@ -54,9 +54,23 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 #### Destroy
 - When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest:** then **NameOfProject**, then you need to follow the directions on the description.
 
-*Check:* This command is merely to see if a given project exists on the server. The client will will ask the following **Chec:** then **NameOfProject** and the server should return a 1 is the project exists and a -1 if the project does not exist.
+#### History
+- When the client needs the history of a particular repository, it will follow the following protocol:
+  - It will first send the following command **Hist:**
+  - Then it will send the **length of the project name**
+  - Then send the **Project Name**
+  - The server should then retrieve the History file from the project and do the following:
+    - If the project exists, send the **size of the History file**
+    - Then send the **History File** to the client
+    - If the project does not exist, then just send **-1** instead of the size
 
-~~*Manifest project number:* Client asks for a file in the following manner **manV:**, server should retrieve the manifest version from the most recent manifest and send the number. (This might be deleted, so ignore it for now)~~
+#### Rollback
+- When the client wants to rollback a repository to the chosen project version, it will follow the following protocol:
+  - It will first send the following command **Roll:**
+  - Then the client will send **length of the project name**
+  - Then send the **Project Name**
+  - Then client will send the **Version** that it wants the server to rollback to
+  - The server only needs to send a success *1* or failure *-1* to indicate to the client that the job is complete
 
 ## Client Functions
 

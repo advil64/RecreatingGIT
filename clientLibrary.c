@@ -8,6 +8,30 @@ pushes since the project's creation. The output should be similar to the update 
 version number and newline separating each push's log of changes.
 */
 int history(char * projName){
+
+  //connect to the server first
+  connectToServer();
+
+  //get the len and send it over
+  int len = strlen(projName)+1;
+  send(sfd, "Hist:", 5, 0);
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, projName, len, 0);
+
+  //get the shit back from server
+  int size = 0;
+  recv(sfd, &size, sizeof(int), MSG_WAITALL);
+  if(size < 0){
+    printf("History could not be fetched because project does not exist on the server, try again.\n");
+    return 1;
+  }
+  char * histBuff = (char *)malloc(size*sizeof(char));
+  memset(histBuff, '\0', size);
+  recv(sfd, histBuff, size, MSG_WAITALL);
+  printf("%s", histBuff);
+  
+  //conduct the frees and return success
+  free(histBuff);
   return 0;
 }
 
