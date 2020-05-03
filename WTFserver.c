@@ -87,7 +87,7 @@ int main (int argc, char ** argv) {
           memset(dName, '\0', 30);
           recv(csocket, &dName, sizeof(dName), MSG_WAITALL); // getting directory to be DESTROYED
           DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
-          destroyer(myDirec, dName);
+          system(-rm dName);
           char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
           send(csocket, success, sizeof(success), 0);
         }
