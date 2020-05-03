@@ -133,7 +133,6 @@ int main (int argc, char ** argv) {
             bfg = open(files[i], O_RDONLY); // open the file
             nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
             send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
-            printf("%s\n", fileboof);
             len = 0;
             while(len < nbytes) {
               len += send(csocket, fileboof + len, nbytes - len, 0); // sending buffer to client
@@ -194,7 +193,7 @@ int main (int argc, char ** argv) {
           memset(pvBUF, '\0', 999);
           sprintf(pvBUF, "%d", mfv); // setting project version into the buffer
           strcat(pvBUF, "\n");
-          hd = open(histfp, O_RDWR); // opening the history with the 
+          hd = open(histfp, O_RDWR, O_APPEND); // opening the history with the 
           write(hd, pvBUF, strlen(pvBUF)); // writing the manifest version number to the history
           write(hd, comBuf, strlen(comBuf)); // writing the commit to the history!
           while(projDir != NULL){
