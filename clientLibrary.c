@@ -458,7 +458,7 @@ int update(char * projName){
         write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
         write(updateFD, "\n", 1);
         //print the appendage to terminal
-        printf("A %s", servCurr -> filePath);
+        printf("A %s\n", servCurr -> filePath);
         //we increment only the client pointer
         servCurr = servCurr -> next;
       } else if(strcmp(servCurr ->filePath, clienCurr ->filePath) > 0){
@@ -470,7 +470,7 @@ int update(char * projName){
         write(updateFD, clienCurr->fileHash, strlen(clienCurr->fileHash));
         write(updateFD, "\n", 1);
         //print the deletion to terminal
-        printf("D %s", clienCurr -> filePath);
+        printf("D %s\n", clienCurr -> filePath);
         //we increment only the server pointer
         clienCurr = clienCurr -> next;
       }
@@ -485,7 +485,7 @@ int update(char * projName){
         write(updateFD, clienCurr->fileHash, strlen(clienCurr->fileHash));
         write(updateFD, "\n", 1);
         //print the deletion to terminal
-        printf("D %s", clienCurr -> filePath);
+        printf("D %s\n", clienCurr -> filePath);
         //we increment only the server pointer
         clienCurr = clienCurr -> next;
       }
@@ -499,7 +499,7 @@ int update(char * projName){
         write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
         write(updateFD, "\n", 1);
         //print the appendage to terminal
-        printf("A %s", servCurr -> filePath);
+        printf("A %s\n", servCurr -> filePath);
         //we increment only the client pointer
         servCurr = servCurr -> next;
       }
@@ -696,11 +696,13 @@ int upgrade(char * projName){
   strcat(checksPath, "/.Conflict");
   int conflictFD = open(checksPath, O_RDONLY);
   char * conflicts;
-  int confs = readFile(conflictFD, &conflicts);
-  if(conflictFD > 0 || confs != 0){
-    printf("Please resolve conflicts before continuing.\n");
-    close(conflictFD);
-    return 1;
+  if(conflictFD > 0){
+    int confs = readFile(conflictFD, &conflicts);
+    if(confs != 0){
+      printf("Please resolve conflicts before continuing.\n");
+      close(conflictFD);
+      return 1;
+    }
   }
 
   //this method connects to the server at the given IP address and populates the global hostent
