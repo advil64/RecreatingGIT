@@ -419,7 +419,7 @@ int update(char * projName){
 
   //if they are the same, then update is done
   if(clientProjVer == servProjVer){
-    printf("Up To Date");
+    printf("Up To Date\n");
   } else{
     //the project versions are not the same and we need to traverse the two manifests
     populateManifest(servMan, &servManHead);
@@ -451,7 +451,7 @@ int update(char * projName){
         //then check if the client and server hashes are the same
         if(strcmp(clienCurr ->fileHash, servCurr ->fileHash) != 0){
           //check if the client hash is also up to date
-          if(strcmp((char *)hex, clienCurr -> fileHash) == 0){
+          if(strcmp(hex, clienCurr -> fileHash) == 0){
             //we need to modify the file on the client side
             write(updateFD, "M ", 2);
             write(updateFD, servCurr -> filePath, strlen(servCurr -> filePath));
@@ -465,7 +465,7 @@ int update(char * projName){
             write(conflictFD, "C ", 2);
             write(conflictFD, servCurr -> filePath, strlen(servCurr -> filePath));
             write(conflictFD, " ", 1);
-            write(conflictFD, hash, strlen((char *)hash));
+            write(conflictFD, hex, strlen(hex));
             write(conflictFD, "\n", 1);
             printf("Conflicts were found and must be resolved before the project can be updated.\n");
           }

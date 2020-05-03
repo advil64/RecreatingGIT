@@ -6,9 +6,7 @@ WTF: clientLibrary.c WTF.c
 WTFserv: WTFserver.c
 	gcc -o WTFserver WTFserver.c
 
-test: WTFserver.c clientLibrary.c WTF.c
-	gcc -lssl -lcrypto -o WTF WTF.c clientLibrary.c 
-	gcc -o WTFserver WTFserver.c
+test: WTF WTFserv WTFserver.c
 	gcc -o WTFtest WTFtest.c
 
 clean:
