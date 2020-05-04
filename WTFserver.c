@@ -12,8 +12,6 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <limits.h>
-#include <openssl/sha.h>
-
 
 int creator (char * name);
 int checkers (char * name);
@@ -23,7 +21,6 @@ int destroyer (DIR * myDirectory, char * currDirec);
 int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec);
 int writeFile(char * path);
 
-char ** files; // global variable that holds all the files within a directory!
 int lsocket; //declaring the file descriptor for our listening (Server) socket
 
 int main (int argc, char ** argv) {
@@ -86,8 +83,7 @@ int main (int argc, char ** argv) {
           char dName[30]; // name of
           memset(dName, '\0', 30);
           recv(csocket, &dName, sizeof(dName), MSG_WAITALL); // getting directory to be DESTROYED
-          DIR * myDirec = opendir(dName); // making direct struct for the directory to be DESTROYED
-          system(-rm dName);
+          system("rm dName"); // using the system call to do this
           char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
           send(csocket, success, sizeof(success), 0);
         }
@@ -107,33 +103,56 @@ int main (int argc, char ** argv) {
           }
         }
         else if(crequest[3] == 'j') { // Proj: protocol
-          files = (char **) malloc(100 * sizeof(char *));
+          char ** filer; // the array that holds the files necessary, stuff in the manifest
+          filer = (char **) malloc(100 * sizeof(char *));
           char * fileboof; // buffer to store file into
           int nbytes; // number of bytes in a file
           int lenProjName; // length of project name
           int bfg; // file descriptors for each file!
+          int md; // manifest file descriptor
+          int i = 0; // first index of filer!
           recv(csocket, &lenProjName, sizeof(int), MSG_WAITALL); // getting lentgh of proj name + 1 from client
           char pject[lenProjName]; // making buffer
           memset(pject, '\0', lenProjName); // presetting it beforehand
           recv(csocket, &pject, lenProjName, MSG_WAITALL); // getting project name from client
-          DIR * projDirec = opendir(pject);
-          int numfiles; // number of files within said project
-          numfiles = traverser(projDirec, 0, 100, pject);
+          int numfiles = 0; // number of files within said project
+          // need to send client number of files from the MANIFEST! Not the directory itself!
+          char manFilePath[PATH_MAX]; // file path of manifest
+          memset(manFilePath, '\0', PATH_MAX); // setting all of it to null terminator
+          strcpy(manFilePath, pject); // adding project name to manifest file path
+          strcat(manFilePath, "/.Manifest"); // making it the manifest file path
+          char * manBoof;
+          char * line; // the tokenized line
+          char checksPath[PATH_MAX]; // path of each file we need to send
+          int fpVer; // file version 
+          char hash[40 + 1]; // hash of the file
+          char tag; // tag of the character
+          md = open(manFilePath, O_RDONLY, S_IRUSR | S_IWUSR); // opening manifest with proper permissions
+          fyleBiter(md, &manBoof); // using adviths method to load manifest into buffer!
+          strtok(manBoof, "\n"); // ignore the first line of manifest which is the new line
+          line = strtok(manBoof, "\n"); // getting the real line we need!
+          while(line != NULL) { // traversing the buffer
+            memset(checksPath, '\0', PATH_MAX);
+            sscanf(line, "%s %d %s %c", checksPath, &fpVer, hash, &tag); // scanning each line and storing that shit
+            filer[i] = checksPath; // loading the said filePath into the filer array
+            numfiles++; // increasing numFiles by 1
+            i++; // increasing i to traverse the array
+            line = strtok(NULL, "\n"); // tokenizing again
+          }
           send(csocket, &numfiles, sizeof(int), 0); // send client number of files
-          int i = 0;
-          int len = 0;
-          char tempPath[PATH_MAX];
+          i = 0; // resetting array index to 0
+          int len = 0; // lenth of filer
+          char tempPath[PATH_MAX]; // path of file
           while (i < numfiles) { // traverse files array
-            len = strlen(files[i]) + 1;
-            send(csocket, &len, sizeof(int), 0);
-            send(csocket, files[i], len, 0); // send path of file
-            recv(csocket, tempPath, 5, MSG_WAITALL);
-            recv(csocket, &len, sizeof(int), MSG_WAITALL);
-            recv(csocket, tempPath, len, MSG_WAITALL);
-            bfg = open(files[i], O_RDONLY); // open the file
+            len = strlen(filer[i]) + 1; // getting length of filepath + null terminator
+            send(csocket, &len, sizeof(int), 0); // sending client length of file
+            send(csocket, filer[i], len, 0); // send path of file
+            recv(csocket, tempPath, 5, MSG_WAITALL); // getting file:
+            recv(csocket, &len, sizeof(int), MSG_WAITALL); // sending length of projname 
+            recv(csocket, tempPath, len, MSG_WAITALL); // getting file path itself
+            bfg = open(filer[i], O_RDONLY); // open the file
             nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
             send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
-            printf("%s\n", fileboof);
             len = 0;
             while(len < nbytes) {
               len += send(csocket, fileboof + len, nbytes - len, 0); // sending buffer to client
