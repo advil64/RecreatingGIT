@@ -1,3 +1,31 @@
 Testing Procedure
 
+<<<<<<< HEAD
 1. First test the create 
+=======
+1. First to setup the project we need to make 3 directories, two for two different clients and one 
+for the server.
+2. Next we need to start up the server on a seperate thread so that it can keep running without
+interfering with the system calls from the clients
+3. Then we use <configure> to setup both clients to work with the localhost because the server will 
+be running on the same machine so that is where traffic will be sent. at port 20202
+4. Then we test the <create> function by creating a "testDirectory" on both the client1 and server
+5. Then we test the <add> function by adding two files to the manifest to be tracked
+6. Next we test the <commit> and <push> commands by commiting the added files then pushing the
+added files to the server
+7. Then we test <add> with subdirectories by first making a couple of directories and then adding
+a couple of files, these adds are also <commit> and <pushed>
+8. To test <checkout> we change to our client2 and checkout the project from the server
+9. Next we modify a couple of the files from client 1 and <commit> and <push> to make the changes
+on the server
+10. Changing back to client 2, we <update> and <upgrade> to retrieve the latest version of the 
+files on the server.
+11. Then we <remove> a file from being tracked in client 2, and <commit> and <push> that so that
+server can remove it from its repository
+12. Changing back to client 1, we <update> and <upgrade> to retrieve the latest version of the 
+files on the server.
+13. To check the history thus far, we call the <history>
+14. To check the <rollback>, we roll the server back to version 1 when we had added only two files
+15. We then <update> and <upgrade> the client 1 repository to reflect the deleted files.
+16. Lastly we <destroy> the repository from the server.
+>>>>>>> 6d3993dfa59424f5d550ad81aaf9658dc5e1346b
