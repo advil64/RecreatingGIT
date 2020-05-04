@@ -331,7 +331,7 @@ int main (int argc, char ** argv) {
           recv(csocket, &version, sizeof(int), MSG_WAITALL); // getting version number from client
           char verNum[999]; // making a buffer for the verNum for the project
           memset(verNum, '\0', 999); // setting everything to null terminator
-          sprintf(verNum, "%d", &version); // setting string to hold the string version of requested version number
+          sprintf(verNum, "%d", version); // setting string to hold the string version of requested version number
           char backup[8] = {'b','a','c','k','u','p','_','\0'};
           char bName[1500];
           memset(bName, '\0', 1500);
@@ -346,7 +346,7 @@ int main (int argc, char ** argv) {
           int m; // file descriptor for manifest
           m = open(manifestFilePath, O_RDONLY, S_IRUSR | S_IWUSR);
           char * mb;
-          fyleBiter(m, mb); // loading manifest into the buffer
+          fyleBiter(m, &mb); // loading manifest into the buffer
           close(m);
           sscanf(mb, "%d\n", &pv); // getting project version from manifest buffer
           pv = pv - 1;
@@ -359,7 +359,7 @@ int main (int argc, char ** argv) {
             strcat(bN, yName);
             strcat(bN, "_");
             memset(vn, '\0', 999);
-            sprintf(vn, "%d", &pv);
+            sprintf(vn, "%d", pv);
             strcat(bN, vn);
             system("rm -rf bName");
             pv--; // decreasing pv
@@ -484,5 +484,7 @@ void handler (int signa) {
 }
 
 void * tstart (void * sock) {
+
+  return NULL;
 
 }
