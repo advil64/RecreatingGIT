@@ -41,14 +41,14 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 #### Push (Split into multiple steps)
 1. Client will ask to push the changes in the commit in the following manner **Push:**
+  - Then the client will send the **Length of the Project Name +1** and then send the **Project Name**, this is to create the server backup.
   - Then the name/path of the .Commit file will sent in the following manner, first the size: **FilePath size +1** (including the null terminator)
   - Then the Client will send **.Commit FilePath-hashcode**, hashcode is appended to serve as an id to the commit file
 2. The server needs to **append the contents of the commit** file to the .History file but make sure to add the **manifest version** number first and then add the contents.
 3. Server should first check to see if the commit file exists and send a 1 if it does and -1 if it doesn't
 4. Server should now fetch that selected .commit file and tokenize the file by new lines, then one by one it will recieve the files from client, make sure to DELETE files tagged D from the server and DO NOT recieve those, the client will not send those files.
   - The client will now send (M and A files) the **length of each file path + 1** then send the **file path** and then send the **# of bytes in the file** and send the **file** itself.
-5. Next the client will send the **Length of the Project Name +1** and then send the **Project Name**, this is to create the server backup.
-6. Lastly the client will send the updated manifest with the new manifest version number and all of the file versions incremented.
+5. Lastly the client will send the updated manifest with the new manifest version number and all of the file versions incremented.
   - Client will send **Length of the Manifest Path+1** then the **Manifest File Path** then the **Number of Bytes in the Manifest File** and lastly **The Manifest File**
   - Server needs to OVERWRITE the .Manifest the is currently there with the new Manifest file from the client which will have incremented version numbers and deleted/added entries
 

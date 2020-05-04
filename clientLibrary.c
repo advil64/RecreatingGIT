@@ -1134,6 +1134,11 @@ int push(char * projName){
     return 1;
   }
 
+  //send the server the project's name
+  int len = strlen(projName)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, projName, len, 0);
+
   //given the project name, we need to check if the commit file exists
   char checksPath[PATH_MAX];
   memset(checksPath, '\0', PATH_MAX);
@@ -1146,7 +1151,7 @@ int push(char * projName){
     return 1;
   }
   char * commBuffer;
-  int len = readFile(comFD, &commBuffer);
+  len = readFile(comFD, &commBuffer);
 
   //calculate the .commit file's hashcode
   int i = 0;
@@ -1251,9 +1256,7 @@ int push(char * projName){
   rewriteManifest(clienManHead, checksPath, manVer+1);
 
   free(manBuff);
-  len = strlen(projName)+1;
-  send(sfd, &len, sizeof(int), 0);
-  send(sfd, projName, len, 0);
+  
   memset(checksPath, '\0', PATH_MAX);
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Manifest");
@@ -1264,8 +1267,11 @@ int push(char * projName){
   len = readFile(manFD, &manBuff);
   send(sfd, &len, sizeof(int), 0);
   send(sfd, manBuff, len, 0);
+  free(manBuff);
+  close(manFD);
 
   freeLL(clienManHead);
+  close(sfd);
   return 0;
 }
 
