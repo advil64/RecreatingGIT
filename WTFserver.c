@@ -17,8 +17,7 @@ int creator (char * name);
 int checkers (char * name);
 int fyleBiter (int fd, char ** buffer);
 int mkdir(const char * pathname, mode_t mode);
-int destroyer (DIR * myDirectory, char * currDirec);
-int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec);
+int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec, char ** files);
 int writeFile(char * path);
 
 int lsocket; //declaring the file descriptor for our listening (Server) socket
@@ -83,7 +82,7 @@ int main (int argc, char ** argv) {
           char dName[30]; // name of
           memset(dName, '\0', 30);
           recv(csocket, &dName, sizeof(dName), MSG_WAITALL); // getting directory to be DESTROYED
-          system("rm dName"); // using the system call to do this
+          system("rm -rf dName"); // using the system call to do this
           char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
           send(csocket, success, sizeof(success), 0);
         }
@@ -139,6 +138,10 @@ int main (int argc, char ** argv) {
             i++; // increasing i to traverse the array
             line = strtok(NULL, "\n"); // tokenizing again
           }
+          close(md);
+          numfiles = numfiles + 1; // increasing numfiles
+          i = i + 1; //increasing i to accomodate the addition of manifest
+          filer[i] = manFilePath; // adding manifest in files to send to client
           send(csocket, &numfiles, sizeof(int), 0); // send client number of files
           i = 0; // resetting array index to 0
           int len = 0; // lenth of filer
@@ -150,7 +153,7 @@ int main (int argc, char ** argv) {
             recv(csocket, tempPath, 5, MSG_WAITALL); // getting file:
             recv(csocket, &len, sizeof(int), MSG_WAITALL); // sending length of projname 
             recv(csocket, tempPath, len, MSG_WAITALL); // getting file path itself
-            bfg = open(filer[i], O_RDONLY); // open the file
+            bfg = open(filer[i], O_RDONLY, S_IRUSR | S_IWUSR); // open the file
             nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
             send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
             len = 0;
@@ -285,6 +288,18 @@ int main (int argc, char ** argv) {
           memset(manBoof, '\0', mbytes);
           recv(csocket, manBoof, mbytes, MSG_WAITALL); // populate the manifest buffer
           write(nmd, manBoof, mbytes);
+          int nfiles; // number of files in the directory
+          DIR * projtrav = opendir(projDir); // creating a dirent struct from the project directory
+          char ** commitdel;
+          commitdel = (char **) malloc(100 * sizeof(char *));
+          nfiles = traverser(projtrav, 0, 100, projDir, commitdel); // getting number of files and storing stuff into commitdel
+          int j = 0;
+          while (j < nfiles) { // while loop removing all commits
+            if (strlen(commitdel[j]) == 48) {
+              remove(commitdel[j]); // gettinf rid of the commit
+            }
+            j++;
+          }
         }
       }
     }
@@ -336,34 +351,8 @@ int fyleBiter (int fd, char ** buffer) { // given a file path, it will find how 
 
 }
 
-int destroyer (DIR * myDirectory, char * currDirec) { // takes in a directory that is meant to be deleted
-  char filePBuff[PATH_MAX + 1]; //stores the filepath of our subdirectories
-  char fylePBuff[PATH_MAX + 1]; // stores filepath of files!!
-  strcpy(filePBuff, currDirec); //in the case of recursion, update the filepath so that we do not get lost
-  strcat(filePBuff, "/");   //add a forward-slash at the end to get ready to add more to the path
-  struct dirent * currDir;   //the dirent struct which holds whatever readdir returns
-  while((currDir = readdir(myDirectory)) != NULL) {   //loop through the contents of the directory and store in files array
-    //skip the . and .. and dsstore file
-    if(strcmp(currDir->d_name, ".") == 0 || strcmp(currDir->d_name, "..") == 0 || strcmp(currDir->d_name,".DS_Store") == 0) {
-      continue;
-    }
-    if(currDir->d_type == DT_DIR) {  //first check if the currdir is a regular file or a directory
-      strcat(filePBuff, currDir->d_name); //add the directory in question to the path
-      destroyer(opendir(filePBuff), filePBuff);  //traverse the new directory
-      strcpy(filePBuff, currDirec);  //we are back in the original file, get rid of the previous file path
-      strcat(filePBuff, "/");  //put the forward-slash back in there
-      rmdir(filePBuff);
-    } 
-    else if(currDir -> d_type == DT_REG) {
-      strcpy(fylePBuff,filePBuff); //add the file path to the array
-      strcat(fylePBuff, currDir->d_name); //store the names of the files in our files array
-      remove(fylePBuff);
-    }
-  }
-  return 1;   //return 1
-}
 
-int traverser (DIR * myDirectory, int count, int currSize, char * currDirec){ // takes in a directory and gets files!
+int traverser (DIR * myDirectory, int count, int currSize, char * currDirec, char ** files){ // takes in a directory and gets files!
   char filePBuff[PATH_MAX + 1]; //stores the filepath of our subdirectories
   strcpy(filePBuff, currDirec); //in the case of recursion, update the filepath so that we do not get lost
   strcat(filePBuff, "/"); //add a forward-slash at the end to get ready to add more to the path
@@ -374,7 +363,7 @@ int traverser (DIR * myDirectory, int count, int currSize, char * currDirec){ //
     }
     if(currDir->d_type == DT_DIR) { //directory is a directory
       strcat(filePBuff, currDir->d_name); //add the directory in question to the path
-      count = traverser(opendir(filePBuff), count, currSize, filePBuff); //traverse the new directory
+      count = traverser(opendir(filePBuff), count, currSize, filePBuff, files); //traverse the new directory
       strcpy(filePBuff, currDirec); //we are back in the original file, get rid of the previous file path
       strcat(filePBuff, "/"); //put the forward-slash back in there
       currSize = ((count%100)+1)*100; //find the new max size of the array
