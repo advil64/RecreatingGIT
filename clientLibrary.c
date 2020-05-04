@@ -1251,6 +1251,9 @@ int push(char * projName){
   rewriteManifest(clienManHead, checksPath, manVer+1);
 
   free(manBuff);
+  len = strlen(projName)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, projName, len, 0);
   memset(checksPath, '\0', PATH_MAX);
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Manifest");
