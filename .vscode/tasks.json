@@ -53,6 +53,32 @@
 				"kind": "build",
 				"isDefault": true
 			}
+		}, {
+			"type": "shell",
+			"label": "Test Build",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-g",
+				"${fileDirname}/WTFtest.c",
+				"-Wall",
+				"-Werror",
+				"-fsanitize=address",
+				"-lssl",
+				"-lcrypto",
+				"-pthread",
+				"-o",
+				"${fileDirname}/${fileBasenameNoExtension}"
+			],
+			"options": {
+				"cwd": "/usr/bin"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
 		}
 	]
 }
