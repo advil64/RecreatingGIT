@@ -24,4 +24,6 @@ int main (int argc, char ** argv){
     //update and upgrade would not be useful but just to check that they work
     system("./WTF update testDirectory");
     system("./WTF upgrade testDirectory");
+    //test the destroy function
+    system("./WTF destroy testDirectory");
 }   
