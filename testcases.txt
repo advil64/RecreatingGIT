@@ -1,0 +1,9 @@
+Edge Case Tests
+
+Testcase: 500 KB File (random format)
+Commands:
+    <add>
+    <commit>
+    <push>
+expected:
+    

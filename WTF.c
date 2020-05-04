@@ -13,6 +13,17 @@ if(strcmp(argv[1], "configure") == 0){
     printf("There was an error configuring the file.\n");
     exit(0);
   }
+} else if(strcmp(argv[1], "currentversion") == 0){
+  //first check that there are the right number of arguments
+  if(argc != 3){
+    printf("Insufficient arguments.\n");
+    exit(0);
+  }
+  //call the checkout method and pass in the project name to be checked out
+  if(currentversion(argv[2])){
+    printf("There was an error checking out the project.\n");
+    exit(0);
+  }
 } else if(strcmp(argv[1], "checkout") == 0){
   //first check that there are the right number of arguments
   if(argc != 3){

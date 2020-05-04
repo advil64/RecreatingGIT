@@ -1,8 +1,5 @@
 Testing Procedure
 
-<<<<<<< HEAD
-1. First test the create 
-=======
 1. First to setup the project we need to make 3 directories, two for two different clients and one 
 for the server.
 2. Next we need to start up the server on a seperate thread so that it can keep running without
@@ -28,4 +25,3 @@ files on the server.
 14. To check the <rollback>, we roll the server back to version 1 when we had added only two files
 15. We then <update> and <upgrade> the client 1 repository to reflect the deleted files.
 16. Lastly we <destroy> the repository from the server.
->>>>>>> 6d3993dfa59424f5d550ad81aaf9658dc5e1346b

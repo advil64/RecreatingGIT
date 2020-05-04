@@ -70,4 +70,5 @@ int removeMan(char *, char *);
 int create(char *);
 int history(char *);
 int push(char *);
+int currentversion(char *);
 #endif

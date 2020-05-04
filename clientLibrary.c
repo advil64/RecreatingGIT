@@ -1320,3 +1320,50 @@ int readFile(int fd, char ** buff){
   //return the size of the file
   return buffSize;
 }
+
+/*The currentversion command will request from the server the current state of a project from the 
+server. This command does not require that the client has a copy of the project locally. The client 
+should output a list of all files under the project name, along with their version number (i.e., 
+number of updates).*/
+int currentversion(char * projName){
+
+  //request the manifest file from the server
+  char checksPath[PATH_MAX];
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Manifest");
+  int len = strlen(checksPath)+1;
+
+  connectToServer();
+
+  //ask the server for the file
+  send(sfd, "File:", 5, 0);
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, checksPath, len, 0);
+  int size = 0;
+  recv(sfd, &size, sizeof(int), MSG_WAITALL);
+
+  //if the size is negative, that's a problem
+  if(size < 0){
+    printf("The %s project does not exist on the server\n", projName);
+    close(sfd);
+  }
+
+  //crate the buffer to store the manifest
+  char * manBuf = (char *)malloc(size*sizeof(char));
+  recv(sfd, manBuf, size, MSG_WAITALL);
+  populateManifest(manBuf, &servManHead);
+
+  //loop and print
+  struct entry * curr = servManHead;
+  while(curr != NULL){
+    printf("%s %d\n", curr -> filePath, curr -> fileVer);
+  }
+
+  //free
+  freeLL(servManHead);
+  close(sfd);
+
+  //return success
+  return 0;
+}
