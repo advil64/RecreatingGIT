@@ -1,9 +1,9 @@
 # Recreating GIT AsstLast
 This is the last assignment in CS 214 for the spring semester of 2020. Git is a a popular current iteration of a series of version control systems. Most large, complex software projects are coded using version control. Version control can be very helpful when working on a single set of source code that multiple people are contributing to by making sure that everyone is working on the same version of the code. If people are working on code in physically separate locations, it is entirely possible that two different people have edited the same original code in two ways that are incompatible with each other. A versioning control system would not allow two different versions of the same file to exist in its central repository, enforcing that any changes made to a file are seen by everyone before they can submit additional changes to the repository.
 
-## Testing Procedure
+## Thread Synchronization (Our Approach)
 
-1. First test the create 
+*Savan's approach to thread synchronization goes here*
 
 ## Server Functions
 
@@ -75,8 +75,26 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 ## Client Functions
 
-### Push
+### Commit
+* [x] Check if the given project exists on the client, checks to see if the .Configure has been set up properly
+* [x] First requests the project Manifest from the server to see if the client project is up to date, if it's not then clien prints an error.
+* [x] If there are any conflicts Client warns the user to resolve before continuing.
+* [x] Load both manifests into linked lists and start comparing the entries. If there is a file on the server or if the file versions are out of sync, warn the user to update.
+* [x] Then traverse the client manifest, if the tag is either 'A' or 'D' (tag is assigned during add or remove) write that entry to the commit file
+* [x] Otherwise calculate the hash for the current client entry and mark it as modified in the commit file.
+* [x] Once all entries in the client manifest have been recorded in the .Commit, generate a hashcode for the commit file, this will serve as its unique identifier which will let the push function on the server side know which commit to use.
+* [x] Send the server the commit command, send the commit file and free everything else.
 
+### Push
+* [x] Check if the given project exists on the client, checks to see if the .Configure has been set up properly
+* [x] Checks if the given project has a .Commit file, if it does not the user needs to commit the changes first.
+* [x] Read the commit file and store it in a buffer. Then calculate the commit file's hashcode so that the server knows which commit file to push the changes of on the server.
+* [x] Once the unique id is generated, send the push command to the server to tell it to get ready to push the commit file's changes.
+* [x] After push, send the name of the project as well as the commit file name and contents to the server so that backups and changes can be applied.
+* [x] Updates the manifest by tokenizing the commit file and replacing old versions and hash codes with the new ones form commit.
+* [x] If the commit calls to delete a file, client erases the line from the manifest. Otherwise the client sends the new versions of the files to the server
+* [x] Once the manifest has been updated send the manifest to the server to rewrite the one there
+* [x] Free everything that has been mallocd and close the file descriptors
 
 ### Update
 * [x] Checks to see if .Configure has been setup correctly and the client has stored the IP and Port number
@@ -110,3 +128,6 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 * [x] Prepends the project name onto the given file name
 * [x] Checks to see if the file exists, if it does, just rewrites the existing hash and increments the file version otherwise calculates a new hash and makes the file version 1
 * [x] Writes changes to the .Manifest
+
+
+	*This repository is the work of Advith Chegu and Savan Patel, please adhere to the Rutgers University Academic Integrity Policy for any future use, have fun!*

@@ -76,6 +76,16 @@ int main (int argc, char ** argv){
     system("cd ../client1");
     system("./WTF update testDirectory");
     system("./WTF upgrade testDirectory");
+    
+    //checkout the history of your project
+    system("./WTF history testDirectory");
+
+    //try rolling back your project to an earlier version
+    system("./WTF rollback testDirectory 1");
+
+    //retrieve this new version
+    system("./WTF update testDirectory");
+    system("./WTF upgrade testDirectory");
 
     //finally test the destroy function
     system("./WTF destroy testDirectory");
