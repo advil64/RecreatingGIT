@@ -3,7 +3,7 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 ## Thread Synchronization (Our Approach)
 
-*Savan's approach to thread synchronization goes here*
+- Simply put, everytime a new client connected to the server, a thread was created to represent that client.  The thread would then go through the thread handler function to then begin the process where the client can send a request that needs to be accomplished.  Thread synchronization is an important aspect of this assignment as the repository needs to be locked in order to prevent conflicts that exist.  That being said, every command in our sever was locked by a mutex and was unlocked when completed so deadlocking would not occur to crash the code.  This implements thread safety and allows for synchronization to occur safely, otherwise the different threads would run havoc and essentially destroy the protection of our repository.
 
 ## Server Functions
 
