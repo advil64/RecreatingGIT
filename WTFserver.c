@@ -13,16 +13,20 @@
 #include <signal.h>
 #include <limits.h>
 
+void handler (int signa);
 int creator (char * name);
 int checkers (char * name);
 int fyleBiter (int fd, char ** buffer);
 int mkdir(const char * pathname, mode_t mode);
 int traverser (DIR * myDirectory, int counter, int currSize, char * currDirec, char ** files);
 int writeFile(char * path);
+void * tstart (void * sock); // thread handler
 
 int lsocket; //declaring the file descriptor for our listening (Server) socket
+int x = 42; // while loop handler in honor of Jackie Robinson
 
 int main (int argc, char ** argv) {
+    signal(SIGINT, handler);
     int csocket; // declaring the file descriptor from the respective client socket
     int caddysize = -1;
     int portnum = atoi(argv[1]);
@@ -180,6 +184,11 @@ int main (int argc, char ** argv) {
         }
         else if(crequest[3] == 'h') { // the push command
           int filePathSize; // file path size including null terminator
+          int projNL; // the project name length!
+          recv(csocket, &projNL, sizeof(int), MSG_WAITALL); // getting projNamelen from client
+          char projName[projNL]; // making string for project name
+          memset(projName, '\0', projNL); // memsetting all to null terminator
+          recv(csocket, projName, projNL, MSG_WAITALL); // GETTING project name from client
           int fcd; // file descriptor of commit
           int md; // manifest file descriptor
           int hd; // file descriptor of history
@@ -190,9 +199,10 @@ int main (int argc, char ** argv) {
           char commfp[filePathSize]; // initializing the buffet thatll hold the file path to the specific commit
           memset(commfp, '\0', filePathSize); // setting them all to 0
           recv(csocket, commfp, filePathSize, MSG_WAITALL); // getting the said file path of the commit!
-          fcd = open(commfp, O_RDONLY); // open the commit, with read only permission
+          fcd = open(commfp, O_RDONLY, S_IRUSR | S_IWUSR); // open the commit, with read only permission
           if (fcd == -1) { // file does not exist!
             send(csocket, &manFail, sizeof(int), 0);
+            break;
           }
           else { // the file exists!
             send(csocket, &manSuc, sizeof(int), 0);
@@ -208,15 +218,24 @@ int main (int argc, char ** argv) {
           memset(manfp, '\0', PATH_MAX); // presetting everything in buffer to null terminator
           strcpy(manfp, projDir); // setting project/ to file path
           strcat(manfp, ".Manifest"); // adding the .Manifest file to it;
-          md = open(manfp, O_RDONLY); // open the manifest
+          md = open(manfp, O_RDONLY, S_IRUSR | S_IWUSR); // open the manifest
           fyleBiter(md, &manBuf); // loading manifest into the buffer
           close(md);
           sscanf(manBuf, "%d\n", &mfv); // getting project version from manifest buffer
           char pvBUF[999];
           memset(pvBUF, '\0', 999);
           sprintf(pvBUF, "%d", mfv); // setting project version into the buffer
+          char backup[8] = {'b','a','c','k','u','p','_','\0'};
+          char bName[1500];
+          memset(bName, '\0', 100);
+          strcpy(bName, backup); // "backup_"
+          strcat(bName, projName); // "backup_projName"
+          strcat(bName, "_"); // "backup_projName_"
+          strcat(bName, pvBUF); // ex: "backup_projName_2"
+          creator(bName); // creating the backup directory!
+          system("cp -Rf projName/*bName"); // storing the stuff from the old directory into the new directory! (duplication)
           strcat(pvBUF, "\n");
-          hd = open(histfp, O_RDWR); // opening the history with the 
+          hd = open(histfp, O_RDWR, S_IRUSR | S_IWUSR); // opening the history with the 
           write(hd, pvBUF, strlen(pvBUF)); // writing the manifest version number to the history
           write(hd, comBuf, strlen(comBuf)); // writing the commit to the history!
           while(projDir != NULL){
@@ -300,6 +319,53 @@ int main (int argc, char ** argv) {
             }
             j++;
           }
+        }
+        else if(crequest[0] == 'R') { // rollback method!
+          int projNameLen; // length of project name
+          int pv; // current proj version
+          recv(csocket, &projNameLen, sizeof(int), MSG_WAITALL); // getting length of project name from client
+          char yName[projNameLen]; // making buffer for project name
+          memset(yName, '\0', projNameLen); // memsetting everything to null terminator
+          recv(csocket, yName, projNameLen, MSG_WAITALL); // getting project name from client
+          int version; // the version the client wants to rollback to
+          recv(csocket, &version, sizeof(int), MSG_WAITALL); // getting version number from client
+          char verNum[999]; // making a buffer for the verNum for the project
+          memset(verNum, '\0', 999); // setting everything to null terminator
+          sprintf(verNum, "%d", &version); // setting string to hold the string version of requested version number
+          char backup[8] = {'b','a','c','k','u','p','_','\0'};
+          char bName[1500];
+          memset(bName, '\0', 1500);
+          strcpy(bName, backup);
+          strcat(bName, yName);
+          strcat(bName, "_");
+          strcat(bName, verNum);
+          char manifestFilePath[PATH_MAX];
+          memset(manifestFilePath, '\0', PATH_MAX);
+          strcpy(manifestFilePath, yName);
+          strcat(manifestFilePath, "/.Manifest"); // manifest file path
+          int m; // file descriptor for manifest
+          m = open(manifestFilePath, O_RDONLY, S_IRUSR | S_IWUSR);
+          char * mb;
+          fyleBiter(m, mb); // loading manifest into the buffer
+          close(m);
+          sscanf(mb, "%d\n", &pv); // getting project version from manifest buffer
+          pv = pv - 1;
+          char bup[8] = {'b','a','c','k','u','p','_','\0'};
+          char vn[999];
+          while (pv > version) { // destroy any backups in between
+            char bN[1500];
+            memset(bN, '\0', 1500);
+            strcpy(bN, bup);
+            strcat(bN, yName);
+            strcat(bN, "_");
+            memset(vn, '\0', 999);
+            sprintf(vn, "%d", &pv);
+            strcat(bN, vn);
+            system("rm -rf bName");
+            pv--; // decreasing pv
+          }
+          system("rm -rf yName");
+          rename(bName, yName); // old project name becomes regular project name
         }
       }
     }
@@ -410,4 +476,13 @@ int writeFile(char * path){
   }
   strcat(appendageString, notLine);
   return 0;
+}
+
+void handler (int signa) {
+  x = 6900; // sets while loop handler to the number that will BREAK IT
+  return; 
+}
+
+void * tstart (void * sock) {
+
 }
