@@ -30,7 +30,7 @@ void * tstart (void * sock); // thread handler
 int lsocket; //declaring the file descriptor for our listening (Server) socket
 int x = 42; // while loop handler in honor of Jackie Robinson
 struct tNode * root = NULL;
-pthread_mutex_t locker;  // global mutex
+pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;  // global mutex
 
 int main (int argc, char ** argv) {
     signal(SIGINT, handler);
@@ -51,7 +51,7 @@ int main (int argc, char ** argv) {
     while (x != 6900) { // while loop that creates threads from new clients being accepted
       csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize);
       printf("New client has connected!\n");
-      pthread_t pthread;
+      pthread_t pthread = NULL;
       int * socketp = (int *) malloc(sizeof(int));
       *socketp = csocket;
       if (root == NULL) {
@@ -70,12 +70,14 @@ int main (int argc, char ** argv) {
 
       }
       pthread_create(&pthread, NULL, &tstart, socketp);
+    }
       void * val;
       while (root != NULL) {
         pthread_join(root->thread, &val);
         root = root -> next;
       }
-    }
+      pthread_mutex_destroy(&locker); // destroying our mutex
+
     return 0;
 }
 
@@ -230,13 +232,14 @@ void * tstart (void * sock) {
     char * fileBuf; // storing bytes in a file
     memset(pathName, '\0', pathSize);
     recv(csocket, &pathName, pathSize, MSG_WAITALL);
-    pfd = open(pathName, O_RDONLY);
+    pfd = open(pathName, O_RDONLY, S_IRUSR | S_IWUSR);
     if(pfd == -1) {
       send(csocket, &manFail, sizeof(int), 0);
     }
     numBytes = fyleBiter(pfd, &fileBuf);
     send(csocket,&numBytes, sizeof(int), 0);
     send(csocket, fileBuf, strlen(fileBuf) + 1, 0);
+    close(pfd);
     pthread_mutex_unlock(&locker);
   }
   else if(crequest[0] == 'D') { // destroying a directory!!
@@ -244,6 +247,11 @@ void * tstart (void * sock) {
     char dName[30]; // name of
     memset(dName, '\0', 30);
     recv(csocket, &dName, sizeof(dName), MSG_WAITALL); // getting directory to be DESTROYED
+    DIR * urmom = opendir(dName);
+    if(!dName) { // said directory does not exist
+      pthread_mutex_unlock(&locker);
+      return NULL;
+    }
     system("rm -rf dName"); // using the system call to do this
     char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
     send(csocket, success, sizeof(success), 0);
@@ -256,7 +264,7 @@ void * tstart (void * sock) {
     recv(csocket, &fileNameS, sizeof(int), MSG_WAITALL);
     char project[fileNameS];
     memset(project, '\0', fileNameS);
-    recv(csocket, &project, sizeof(project), MSG_WAITALL);
+    recv(csocket, &project, fileNameS, MSG_WAITALL);
     returnstat = checkers(project);
     if(returnstat == 1) { // success!
       send(csocket, &manSuc, sizeof(int), 0);
@@ -327,6 +335,7 @@ void * tstart (void * sock) {
         len += send(csocket, fileboof + len, nbytes - len, 0); // sending buffer to client
       }
         i++;
+        close(bfg);
       }
     pthread_mutex_unlock(&locker);
   }
@@ -345,6 +354,7 @@ void * tstart (void * sock) {
     memset(cbuff, '\0', eb); // setting everything in buffer to null terminator
     recv(csocket, cbuff, eb, MSG_WAITALL); // loading the contents of the commit into said buffer
     write(cfd, cbuff, eb - 1); // writing to said commit file the contents, write eb number of bytes(whole cbuff)
+    close(cfd);
     pthread_mutex_unlock(&locker);
   }
   else if(crequest[3] == 'h') { // the push command
@@ -368,6 +378,7 @@ void * tstart (void * sock) {
     fcd = open(commfp, O_RDONLY, S_IRUSR | S_IWUSR); // open the commit, with read only permission
     if (fcd == -1) { // file does not exist!
       send(csocket, &manFail, sizeof(int), 0);
+      pthread_mutex_unlock(&locker);
       return NULL;
     }
     else { // the file exists!
@@ -435,6 +446,7 @@ void * tstart (void * sock) {
         char fb[byter]; // buffer for the file
         recv(csocket, fb, byter, MSG_WAITALL);
         write(currFD, fb, byter);
+        close(currFD);
       }
       else if(instruction == 'M') {
         recv(csocket, &fplen, sizeof(int), MSG_WAITALL);
@@ -446,6 +458,7 @@ void * tstart (void * sock) {
         char fb[byter]; // buffer for the file
         recv(csocket, fb, byter, MSG_WAITALL);
         write(currFD, fb, byter);
+        close(currFD);
       }
       else if(instruction == 'D') { // delete file
         remove(checksPath); // we dont get anything from the client!
@@ -485,6 +498,9 @@ void * tstart (void * sock) {
       }
       j++;
     }
+    close(fcd);
+    close(nmd);
+    close(hd);
     pthread_mutex_unlock(&locker);
   }
   else if(crequest[0] == 'R') { // rollback method!
