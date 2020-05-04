@@ -253,8 +253,8 @@ int add(char * projName, char * filePath){
   close(manFD);
 
   //calculate and convert the hash
-  char hash[SHA_DIGEST_LENGTH+1];
-  SHA1((unsigned char *)filebuffer, len, (unsigned char *)hash);
+  unsigned char hash[SHA_DIGEST_LENGTH+1];
+  SHA1((unsigned char *)filebuffer, len, hash);
   hash[SHA_DIGEST_LENGTH] = '\0';
   char hex[hashLen+1];
   memset(hex, '\0', hashLen+1);
@@ -416,6 +416,8 @@ int update(char * projName){
   strcat(checksPath, "/.Conflict");
   int conflictFD = open(checksPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
   int hasConflict = FALSE;
+  char * currFile;
+  int currFD;
 
   //if they are the same, then update is done
   if(clientProjVer == servProjVer){
@@ -441,8 +443,11 @@ int update(char * projName){
         memset(hex, '\0', hashLen+1);
         i = 0;
         x = 0;
+        //read the selected file
+        currFD = open(clienCurr -> filePath, O_RDONLY);
+        len = readFile(currFD, &currFile);
         //to check for conflicts, first calculate the sha1 of the file in the client
-        SHA1((unsigned char *)clientMan, strlen(clientMan), hash);
+        SHA1((unsigned char *)currFile, len, hash);
         while(x < SHA_DIGEST_LENGTH){
           snprintf((char*)(hex+i),3,"%02X", hash[x]);
           x+=1;
@@ -458,7 +463,7 @@ int update(char * projName){
             write(updateFD, " ", 1);
             write(updateFD, servCurr->fileHash, strlen(servCurr->fileHash));
             write(updateFD, "\n", 1);
-            printf("M %s", servCurr -> filePath);
+            printf("M %s\n", servCurr -> filePath);
           } else{
             //we have a conflict
             hasConflict = TRUE;
@@ -1000,7 +1005,7 @@ int commit(char * projName){
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Commit");
   int comFD = open(checksPath, O_TRUNC | O_RDWR | O_CREAT,  S_IRUSR | S_IWUSR);
-  char hash[SHA_DIGEST_LENGTH+1];
+  unsigned char hash[SHA_DIGEST_LENGTH+1];
   char hex[hashLen+1];
   int fileFD;
   char * currFile;
@@ -1028,7 +1033,7 @@ int commit(char * projName){
     } else{
       fileFD = open(clienCurr -> filePath, O_RDONLY);
       len = readFile(fileFD, &currFile);
-      SHA1((unsigned char *)currFile, len, (unsigned char *)hash);
+      SHA1((unsigned char *)currFile, len, hash);
       while(x < SHA_DIGEST_LENGTH){
         snprintf((char*)(hex+i),3,"%02X", hash[x]);
         x+=1;
@@ -1065,7 +1070,7 @@ int commit(char * projName){
   x = 0;
   memset(hash, '\0', SHA_DIGEST_LENGTH+1);
   memset(hex, '\0', hashLen+1);
-  SHA1((unsigned char *)commBuffer, len, (unsigned char *)hash);
+  SHA1((unsigned char *)commBuffer, len, hash);
   while(x < SHA_DIGEST_LENGTH){
     snprintf((char*)(hex+i),3,"%02X", hash[x]);
     x+=1;
@@ -1146,11 +1151,11 @@ int push(char * projName){
   //calculate the .commit file's hashcode
   int i = 0;
   int x = 0;
-  char hash[SHA_DIGEST_LENGTH+1];
+  unsigned char hash[SHA_DIGEST_LENGTH+1];
   char hex[hashLen+1];
   memset(hash, '\0', SHA_DIGEST_LENGTH+1);
   memset(hex, '\0', hashLen+1);
-  SHA1((unsigned char *)commBuffer, len, (unsigned char *)hash);
+  SHA1((unsigned char *)commBuffer, len, hash);
   while(x < SHA_DIGEST_LENGTH){
     snprintf((char*)(hex+i),3,"%02X", hash[x]);
     x+=1;
