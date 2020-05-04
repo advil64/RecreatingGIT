@@ -7,7 +7,7 @@ WTFserv: WTFserver.c
 	gcc -o WTFserver WTFserver.c
 
 test: WTF WTFserv WTFserver.c
-	gcc -o WTFtest WTFtest.c
+	gcc -pthread -o WTFtest WTFtest.c
 
 clean:
 	rm -rf WTF 

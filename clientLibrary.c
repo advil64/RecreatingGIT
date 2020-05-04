@@ -1168,6 +1168,13 @@ int push(char * projName){
   strcat(checksPath, "/.Commit-");
   strcat(checksPath, hex);
   send(sfd, "Push:", 5, 0);
+
+  //send the server the project's name
+  len = strlen(projName)+1;
+  send(sfd, &len, sizeof(int), 0);
+  send(sfd, projName, len, 0);
+
+  //send the commit
   len = strlen(checksPath)+1;
   send(sfd, &len, sizeof(int), 0);
   send(sfd, checksPath, len, 0);
@@ -1251,6 +1258,7 @@ int push(char * projName){
   rewriteManifest(clienManHead, checksPath, manVer+1);
 
   free(manBuff);
+  
   memset(checksPath, '\0', PATH_MAX);
   strcpy(checksPath, projName);
   strcat(checksPath, "/.Manifest");
@@ -1262,7 +1270,12 @@ int push(char * projName){
   send(sfd, &len, sizeof(int), 0);
   send(sfd, manBuff, len, 0);
 
+  free(manBuff);
+  close(manFD);
+  close(comFD);
+  free(commBuffer);
   freeLL(clienManHead);
+  close(sfd);
   return 0;
 }
 
