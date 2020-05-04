@@ -35,6 +35,7 @@
 			"args": [
 				"-g",
 				"${fileDirname}/WTFserver.c",
+				"-lpthread",
 				"-Wall",
 				"-Werror",
 				"-fsanitize=address",

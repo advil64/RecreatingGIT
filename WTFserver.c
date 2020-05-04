@@ -55,7 +55,7 @@ int main (int argc, char ** argv) {
       int * socketp = (int *) malloc(sizeof(int));
       *socketp = csocket;
       if (root == NULL) {
-        root = (struct tNode *) malloc(sizeof(struct tNode *));
+        root = (struct tNode *) malloc(sizeof(struct tNode));
         root->thread = pthread;
         root->next = NULL;
       }
@@ -203,7 +203,7 @@ void * tstart (void * sock) {
   send(csocket, sCon, 7, 0); // success message!
   char crequest[6]; // get requests from clients!
   memset(crequest, '\0', 6);
-  recv(csocket, &crequest, 5, 0);
+  while (recv(csocket, crequest, 5, 0)) {
   printf("The client has requested the server to: %s\n", crequest);
   if (crequest[3] == 'a') { // this means you know you have to create the project (Will come in as Crea:)
     pthread_mutex_lock(&locker);
@@ -244,17 +244,21 @@ void * tstart (void * sock) {
   }
   else if(crequest[0] == 'D') { // destroying a directory!!
     pthread_mutex_lock(&locker);
-    char dName[30]; // name of
-    memset(dName, '\0', 30);
-    recv(csocket, &dName, sizeof(dName), MSG_WAITALL); // getting directory to be DESTROYED
+    int dsize;
+    recv(csocket, &dsize, sizeof(int), MSG_WAITALL);
+    char dName[dsize]; // name of
+    memset(dName, '\0', dsize);
+    recv(csocket, &dName, dsize, MSG_WAITALL); // getting directory to be DESTROYED
     DIR * urmom = opendir(dName);
-    if(!dName) { // said directory does not exist
+    if(!urmom) { // said directory does not exist
       pthread_mutex_unlock(&locker);
       return NULL;
     }
-    system("rm -rf dName"); // using the system call to do this
-    char success[8] = {'s', 'u', 'c', 'c', 'e', 's', 's', '\0'};
-    send(csocket, success, sizeof(success), 0);
+    char deletor[dsize + 7];
+    memset(deletor, '\0', dsize + 7);
+    strcat(deletor, "rm -rf ");
+    strcat(deletor, dName);
+    system(deletor); // using the system call to do this
     pthread_mutex_unlock(&locker);  
   }
   else if (crequest[1] == 'h') { // checks to see if file exists
@@ -551,6 +555,7 @@ void * tstart (void * sock) {
     system("rm -rf yName");
     rename(bName, yName); // old project name becomes regular project name
     pthread_mutex_unlock(&locker);
+  }
   }
   return NULL;
 }
