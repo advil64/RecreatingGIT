@@ -839,7 +839,7 @@ int writeFile(char * path){
     if(!myDirec){
       mkdir(appendageString, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     } else{
-      free(myDirec);
+      closedir(myDirec);
     }
     //traverse
     line = next;

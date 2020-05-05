@@ -8,19 +8,19 @@ int main (int argc, char ** argv){
     //make a client 1 and client 2 directories to test two different clients
     system("mkdir client1"); 
     system("mkdir client2");
-    //system("mkdir server");
+    system("mkdir server");
     system("make");
     system("cp WTF client1/");
     system("cp WTF client2/");
-    //system("cp WTFserver server/");
+    system("cp WTFserver server/");
 
     //start the server
-    //pthread_t id;
-    //pthread_create(&id, NULL, servStart, "server_is_starting");
+    pthread_t id;
+    pthread_create(&id, NULL, servStart, "server_is_starting");
 
     //first configure to localhost and 20202
-    system("cd client1/ && ./WTF configure kill.cs.rutgers.edu 20213");
-    system("cd client2/ && ./WTF configure kill.cs.rutgers.edu 20213");
+    system("cd client1/ && ./WTF configure localhost 20202");
+    system("cd client2/ && ./WTF configure localhost 20202");
 
     //now we will work with client 1
     
@@ -71,6 +71,7 @@ int main (int argc, char ** argv){
     
     //checkout the history of your project
     system("cd client1/ && ./WTF history testDirectory");
+    system("cd client1/ && ./WTF currentversion testDirectory");
 
     //try rolling back your project to an earlier version
     system("cd client1/ && ./WTF rollback testDirectory 1");
