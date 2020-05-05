@@ -30,10 +30,11 @@ void * tstart (void * sock); // thread handler
 int lsocket; //declaring the file descriptor for our listening (Server) socket
 int x = 42; // while loop handler in honor of Jackie Robinson
 struct tNode * root = NULL;
-pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;  // global mutex
+pthread_mutex_t locker;  // global mutex
 
 int main (int argc, char ** argv) {
     signal(SIGINT, handler);
+    pthread_mutex_init(&locker, NULL);
     int csocket; // declaring the file descriptor from the respective client socket
     int caddysize = -1;
     int portnum = atoi(argv[1]);
@@ -71,11 +72,18 @@ int main (int argc, char ** argv) {
       }
       pthread_create(&pthread, NULL, &tstart, socketp);
     }
-      void * val;
+      printf("The code has worked this far without segfaulting1\n");
+      char * val;
+      struct tNode * hold = root;
+      struct tNode * del;
       while (root != NULL) {
-        pthread_join(root->thread, &val);
-        root = root -> next;
+        printf("The code has worked this far without segfaulting2\n");
+        del = hold;
+        hold = hold -> next;
+        pthread_join(del->thread, (void **) &val);
+        printf("The code has worked thisfar without segfaulting3\n");
       }
+      printf("The code has worked this far without segfaulting4\n");
       pthread_mutex_destroy(&locker); // destroying our mutex
 
     return 0;
@@ -257,9 +265,11 @@ void * tstart (void * sock) {
     recv(csocket, &dName, dsize, MSG_WAITALL); // getting directory to be DESTROYED
     DIR * urmom = opendir(dName);
     if(!urmom) { // said directory does not exist
+      closedir(urmom);
       pthread_mutex_unlock(&locker);
       return NULL;
     }
+    closedir(urmom);
     char deletor[dsize + 7];
     memset(deletor, '\0', dsize + 7);
     strcat(deletor, "rm -rf ");
@@ -594,5 +604,6 @@ void * tstart (void * sock) {
   }
   }
   close(csocket);
+  printf("No segfault yet\n");
   return NULL;
 }
