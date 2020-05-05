@@ -1365,6 +1365,7 @@ int currentversion(char * projName){
   struct entry * curr = servManHead;
   while(curr != NULL){
     printf("%s %d\n", curr -> filePath, curr -> fileVer);
+    curr = curr -> next;
   }
 
   //free

@@ -6,7 +6,7 @@ WTF: clientLibrary.c WTF.c clientHeader.h
 WTFserv: WTFserver.c
 	gcc -lpthread -o WTFserver WTFserver.c
 
-test: WTF WTFserv WTFserver.c
+test: WTFtest.c
 	gcc -pthread -o WTFtest WTFtest.c
 
 clean:
