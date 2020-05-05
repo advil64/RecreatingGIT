@@ -74,7 +74,7 @@ int main (int argc, char ** argv){
     system("cd client1/ && ./WTF currentversion testDirectory");
 
     //try rolling back your project to an earlier version
-    system("cd client1/ && ./WTF rollback testDirectory 1");
+    system("cd client1/ && ./WTF rollback testDirectory 2");
 
     //retrieve this new version
     system("cd client1/ && ./WTF update testDirectory");
@@ -87,10 +87,10 @@ int main (int argc, char ** argv){
     system("killall -SIGINT WTFserver");
 
     //clean up our directories
-    system("rm -rf client1");
-    system("rm -rf client2");
-    system("rm -rf server");
-    system("make clean");
+    //system("rm -rf client1");
+    //system("rm -rf client2");
+    //system("rm -rf server");
+    //system("make clean");
     return 0;
 }
 

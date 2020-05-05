@@ -529,13 +529,13 @@ void * tstart (void * sock) {
     DIR * backtrav = opendir(bName);
     char ** backcdel;
     int bcfiles;
-    backdel = (char **) malloc(100 * sizeof(char *));
+    backcdel = (char **) malloc(100 * sizeof(char *));
     bcfiles = traverser(backtrav, 0, 100, bName, backcdel);
     j = 0;
     int bNL = strlen(bName);
     while (j < bcfiles) { // while loop removing all commits
-      if (strlen(backdel[j]) == (49 + bNL)) {
-        remove(backdel[j]); // gettinf rid of the commit
+      if (strlen(backcdel[j]) == (49 + bNL)) {
+        remove(backcdel[j]); // gettinf rid of the commit
       }
       j++;
     }
