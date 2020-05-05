@@ -163,6 +163,9 @@ if(strcmp(argv[1], "configure") == 0){
     printf("There was an error trying to rollback your project, try again.\n");
     exit(0);
   }
+} else {
+  printf("Unknown command %s, please consult the readme for the commands.", argv[1]);
+  exit(0);
 }
 printf("Your %s command was successfully executed.\n", argv[1]);
 return 0;
