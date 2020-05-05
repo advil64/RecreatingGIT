@@ -85,6 +85,12 @@ int main (int argc, char ** argv){
 
     //terminate the server process
     system("killall -SIGINT WTFserver");
+
+    //clean up our directories
+    system("rm -rf client1");
+    system("rm -rf client2");
+    system("rm -rf server");
+    system("make clean");
     return 0;
 }
 

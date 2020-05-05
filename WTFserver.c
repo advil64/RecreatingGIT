@@ -16,6 +16,7 @@
 struct tNode {
   pthread_t thread;
   struct tNode * next;
+  int valSocket;
 }; //thread node definition
 
 void handler (int signa);
@@ -37,6 +38,10 @@ int main (int argc, char ** argv) {
     pthread_mutex_init(&locker, NULL);
     int csocket; // declaring the file descriptor from the respective client socket
     int caddysize = -1;
+    if(argc < 2){
+      printf("Please enter the port # to accept traffic.\n");
+      exit(0);
+    }
     int portnum = atoi(argv[1]);
     lsocket = socket(AF_INET, SOCK_STREAM, 0); // creating the socket
     /* stuff that comprises the server addy */
@@ -50,8 +55,10 @@ int main (int argc, char ** argv) {
     bind(lsocket, (struct sockaddr*) &serveraddy, sizeof(serveraddy)); // binding socket to address
     listen(lsocket, 3); // has 0 clients on backlog
     while (x != 6900) { // while loop that creates threads from new clients being accepted
-      csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize);
-      printf("New client has connected!\n");
+      if (x != 6900) {
+        csocket = accept(lsocket, (struct sockaddr *) &clientaddy, (socklen_t *) &caddysize);
+        printf("New client has connected!\n");
+      }
       pthread_t pthread = NULL;
       int * socketp = (int *) malloc(sizeof(int));
       *socketp = csocket;
@@ -59,31 +66,27 @@ int main (int argc, char ** argv) {
         root = (struct tNode *) malloc(sizeof(struct tNode));
         root->thread = pthread;
         root->next = NULL;
+        root ->valSocket = csocket;
       }
       else {
-        struct tNode * temp = root;
-        while (temp->next != NULL) {
-          temp = temp ->next;
-        }
-        temp->next = (struct tNode *) malloc(sizeof(struct tNode));
-        temp->next->thread = pthread;
-        temp->next->next = NULL;
-
+        struct tNode * temp = (struct tNode *) malloc(sizeof(struct tNode));
+        temp->next = root;
+        temp->thread = pthread;
+        temp->valSocket = csocket;
+        root = temp;
       }
-      pthread_create(&pthread, NULL, &tstart, socketp);
+      pthread_create(&(root->thread), NULL, &tstart, socketp);
     }
-      printf("The code has worked this far without segfaulting1\n");
-      char * val;
       struct tNode * hold = root;
       struct tNode * del;
-      while (root != NULL) {
-        printf("The code has worked this far without segfaulting2\n");
+      while (hold != NULL) {
         del = hold;
         hold = hold -> next;
-        pthread_join(del->thread, (void **) &val);
-        printf("The code has worked thisfar without segfaulting3\n");
+        if(del -> valSocket != -1) {
+          void * value;
+          pthread_join(del->thread, &value);
+        }
       }
-      printf("The code has worked this far without segfaulting4\n");
       pthread_mutex_destroy(&locker); // destroying our mutex
 
     return 0;
@@ -202,7 +205,7 @@ int writeFile(char * path){
 
 void handler (int signa) {
   x = 6900; // sets while loop handler to the number that will BREAK IT
-  close(lsocket);
+  shutdown(lsocket,SHUT_RD);
   printf("The server will be terminated!\n");
   return; 
 }
@@ -523,7 +526,21 @@ void * tstart (void * sock) {
       }
       j++;
     }
+    DIR * backtrav = opendir(bName);
+    char ** backcdel;
+    int bcfiles;
+    backdel = (char **) malloc(100 * sizeof(char *));
+    bcfiles = traverser(backtrav, 0, 100, bName, backcdel);
+    j = 0;
+    int bNL = strlen(bName);
+    while (j < bcfiles) { // while loop removing all commits
+      if (strlen(backdel[j]) == (49 + bNL)) {
+        remove(backdel[j]); // gettinf rid of the commit
+      }
+      j++;
+    }
     closedir(projtrav);
+    closedir(backtrav);
     close(fcd);
     close(nmd);
     close(hd);
@@ -604,6 +621,5 @@ void * tstart (void * sock) {
   }
   }
   close(csocket);
-  printf("No segfault yet\n");
   return NULL;
 }
