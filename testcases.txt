@@ -24,10 +24,39 @@ Expected:
 
 Testcase: Any testfile
 Commands:
-    Client 1:
+    Any Client:
         <add>
         <push>
 Expected:
     The push should fail because the commit does not exist on the client. "Please commit before you 
     try to push to the server."
-    
+
+Testcase: Any file
+Commands:
+    Any Client:
+        <add>
+        (Has not configured a port # or IP address)
+        <commit>
+Expected:
+    Any command that needs to connect to the server would fail. Please configure your client with a 
+    port and IP first.
+
+Testcase: Any file
+Commands:
+    Any Client:
+        (Has not called update before upgrade)
+        <upgrade>
+Expected:
+    Upgrade will fail because it has no updates to apply to the manifest. There are no updates at 
+    this time, please try again later.
+
+Testcase: Any file
+Commands:
+    Any Client:
+        <destroy>
+        (Any other command that connects to the server)
+Expected:
+    Because the project has been deleted from the server, the client prints an error message. "The 
+    project you are looking for does not exist."
+
+

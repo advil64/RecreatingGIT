@@ -90,6 +90,7 @@ int create(char * projName){
 
   //close everything
   close(manFD);
+  close(sfd);
   return 0;
 }
 
@@ -218,6 +219,7 @@ int checkout(char * projName){
     recv(sfd, path, pathLength, MSG_WAITALL);
     writeFile(path);
   }
+  close(sfd);
   return 0;
 }
 
@@ -769,6 +771,8 @@ int upgrade(char * projName){
   if(updateBytes == 0){
     printf("There are no updates at this time, please try again later.\n");
     remove(checksPath);
+    close(updateFD);
+    close(sfd);
     return 1;
   }
   //tokenize through the updates
