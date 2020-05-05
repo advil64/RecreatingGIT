@@ -93,15 +93,19 @@ int creator (char * name) { // will see if the name of the project is there or n
     strcat(manPath, "/.Manifest");
     strcat(hisPath, "/.History" );
     int mfd; // manpage file descriptor
+    int hd;
     DIR * proj = opendir(name);
     if (!proj) { // the directory does not exist in this world
-      mkdir(name, S_IRWXU); // makes the directory
+      mkdir(name, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH); // makes the directory
       mfd = open(manPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates manifest in directory
-      open(hisPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates the history in the directory also
+      hd = open(hisPath, O_TRUNC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR); // creates the history in the directory also
       write(mfd, newMan, 1);
+      close(mfd);
+      close(hd);
       return 1;
     }
     else {
+      closedir(proj);
       return -1; // the project already existed!!
     } 
 }
@@ -112,6 +116,7 @@ int checkers (char * name) { // almost like the opposite of create in my opinion
     return -1;
   }
   else {
+    closedir(proj);
     return 1; // the project exists!
   }
 }
@@ -176,7 +181,7 @@ int writeFile(char * path){
     if(!myDirec){
       mkdir(appendageString, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     } else{
-      free(myDirec);
+      closedir(myDirec);
     }
     //traverse
     notLine = next;
@@ -507,13 +512,14 @@ void * tstart (void * sock) {
       }
       j++;
     }
+    closedir(projtrav);
     close(fcd);
     close(nmd);
     close(hd);
     pthread_mutex_unlock(&locker);
   }
   else if(crequest[0] == 'R') { // rollback method!
-    pthread_mutex_lock(&locker);
+    pthread_mutex_lock(&locker); // lock the mutex
     int projNameLen; // length of project name
     int pv; // current proj version
     recv(csocket, &projNameLen, sizeof(int), MSG_WAITALL); // getting length of project name from client
@@ -526,12 +532,26 @@ void * tstart (void * sock) {
     memset(verNum, '\0', 999); // setting everything to null terminator
     sprintf(verNum, "%d", version); // setting string to hold the string version of requested version number
     char backup[8] = {'b','a','c','k','u','p','_','\0'};
-    char bName[1500];
-    memset(bName, '\0', 1500);
+    char bName[30 + strlen(yName) + strlen(verNum)];
+    memset(bName, '\0', 30 + strlen(yName) + strlen(verNum));
     strcpy(bName, backup);
     strcat(bName, yName);
     strcat(bName, "_");
     strcat(bName, verNum);
+    DIR * pcheck = opendir(yName);
+    if(!pcheck) {
+      send(csocket, &manFail, sizeof(int), 0);
+      pthread_mutex_unlock(&locker);
+      return NULL;
+    }
+    closedir(pcheck);
+    DIR * check = opendir(bName);
+    if (!check) { // the version that is wanted does not exist therefore impossible to rollback to!
+      send(csocket, &manFail, sizeof(int), 0);
+      pthread_mutex_unlock(&locker);
+      return NULL;
+    }
+    closedir(check);
     char manifestFilePath[PATH_MAX];
     memset(manifestFilePath, '\0', PATH_MAX);
     strcpy(manifestFilePath, yName);
@@ -543,22 +563,30 @@ void * tstart (void * sock) {
     close(m);
     sscanf(mb, "%d\n", &pv); // getting project version from manifest buffer
     pv = pv - 1;
-    char bup[8] = {'b','a','c','k','u','p','_','\0'};
     char vn[999];
     while (pv > version) { // destroy any backups in between
-      char bN[1500];
-      memset(bN, '\0', 1500);
-      strcpy(bN, bup);
+      char bN[30 + strlen(yName)];
+      memset(bN, '\0', 30 + strlen(yName));
+      strcpy(bN, backup);
       strcat(bN, yName);
       strcat(bN, "_");
       memset(vn, '\0', 999);
       sprintf(vn, "%d", pv);
       strcat(bN, vn);
-      system("rm -rf bName");
+      char backDes[strlen(bN) + 20];
+      memset(backDes, '\0', strlen(bN) + 20);
+      strcat(backDes, "rm -rf ");
+      strcat(backDes, bN);
+      system(backDes);
       pv--; // decreasing pv
     }
-    system("rm -rf yName");
+    char projDes[strlen(yName) + 8];
+    memset(projDes, '\0', strlen(yName) + 8);
+    strcat(projDes, "rm -rf ");
+    strcat(projDes, yName);
+    system(projDes);
     rename(bName, yName); // old project name becomes regular project name
+    send(csocket, &manSuc, sizeof(int), 0);
     pthread_mutex_unlock(&locker);
   }
   }
