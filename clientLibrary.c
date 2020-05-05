@@ -1277,9 +1277,15 @@ int push(char * projName){
   send(sfd, &len, sizeof(int), 0);
   send(sfd, manBuff, len, 0);
 
+  //expire the commit on the client
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.Commit");
+  close(comFD);
+  remove(checksPath);
+
   free(manBuff);
   close(manFD);
-  close(comFD);
   free(commBuffer);
   freeLL(clienManHead);
   close(sfd);

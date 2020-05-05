@@ -1,9 +1,33 @@
 Edge Case Tests
 
-Testcase: 500 KB File (random format)
+Testcase: 10 MB File (random format)
 Commands:
-    <add>
-    <commit>
-    <push>
-expected:
+    Client 1:
+        <add>
+        <commit>
+        <push>
+Expected:
+    Server and client should have the file in both of their working directories, the hash should
+    have been successfully calculated and the manifests are the same between server and client.
+
+Testcase: Any testfile
+Commands:
+    Client 1:
+        <add>
+        <commit>
+        <push>
+    Client 2:
+        <update>
+        <upgrade>
+Expected:
+    The server, client 1, and client 2 should have the same files as well as the same manifests
+
+Testcase: Any testfile
+Commands:
+    Client 1:
+        <add>
+        <push>
+Expected:
+    The push should fail because the commit does not exist on the client. "Please commit before you 
+    try to push to the server."
     
