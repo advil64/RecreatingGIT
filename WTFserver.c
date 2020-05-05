@@ -195,6 +195,7 @@ int writeFile(char * path){
 void handler (int signa) {
   x = 6900; // sets while loop handler to the number that will BREAK IT
   close(lsocket);
+  printf("The server will be terminated!\n");
   return; 
 }
 
@@ -208,7 +209,7 @@ void * tstart (void * sock) {
   send(csocket, sCon, 7, 0); // success message!
   char crequest[6]; // get requests from clients!
   memset(crequest, '\0', 6);
-  while (recv(csocket, crequest, 5, 0)) {
+  while (recv(csocket, crequest, 5, 0) && x != 6900) {
     printf("The client has requested the server to: %s\n", crequest);
   if (crequest[3] == 'a') { // this means you know you have to create the project (Will come in as Crea:)
     pthread_mutex_lock(&locker);
@@ -542,6 +543,7 @@ void * tstart (void * sock) {
     if(!pcheck) {
       send(csocket, &manFail, sizeof(int), 0);
       pthread_mutex_unlock(&locker);
+      close(csocket);
       return NULL;
     }
     closedir(pcheck);
@@ -549,6 +551,7 @@ void * tstart (void * sock) {
     if (!check) { // the version that is wanted does not exist therefore impossible to rollback to!
       send(csocket, &manFail, sizeof(int), 0);
       pthread_mutex_unlock(&locker);
+      close(csocket);
       return NULL;
     }
     closedir(check);
@@ -590,5 +593,6 @@ void * tstart (void * sock) {
     pthread_mutex_unlock(&locker);
   }
   }
+  close(csocket);
   return NULL;
 }
