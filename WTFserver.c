@@ -64,7 +64,7 @@ int main (int argc, char ** argv) {
         while (temp->next != NULL) {
           temp = temp ->next;
         }
-        temp->next = (struct tNode *) malloc(sizeof(struct tNode *));
+        temp->next = (struct tNode *) malloc(sizeof(struct tNode));
         temp->next->thread = pthread;
         temp->next->next = NULL;
 
@@ -204,7 +204,7 @@ void * tstart (void * sock) {
   char crequest[6]; // get requests from clients!
   memset(crequest, '\0', 6);
   while (recv(csocket, crequest, 5, 0)) {
-  printf("The client has requested the server to: %s\n", crequest);
+    printf("The client has requested the server to: %s\n", crequest);
   if (crequest[3] == 'a') { // this means you know you have to create the project (Will come in as Crea:)
     pthread_mutex_lock(&locker);
     int projLen = 0;
@@ -238,7 +238,7 @@ void * tstart (void * sock) {
     }
     numBytes = fyleBiter(pfd, &fileBuf);
     send(csocket,&numBytes, sizeof(int), 0);
-    send(csocket, fileBuf, strlen(fileBuf) + 1, 0);
+    send(csocket, fileBuf, numBytes, 0);
     close(pfd);
     pthread_mutex_unlock(&locker);
   }
@@ -281,7 +281,7 @@ void * tstart (void * sock) {
   else if(crequest[3] == 'j') { // Proj: protocol
     pthread_mutex_lock(&locker);
     char ** filer; // the array that holds the files necessary, stuff in the manifest
-    filer = (char **) malloc(100 * sizeof(char *));
+    filer = (char **) malloc(999 * sizeof(char *));
     char * fileboof; // buffer to store file into
     int nbytes; // number of bytes in a file
     int lenProjName; // length of project name
@@ -306,19 +306,19 @@ void * tstart (void * sock) {
     char tag; // tag of the character
     md = open(manFilePath, O_RDONLY, S_IRUSR | S_IWUSR); // opening manifest with proper permissions
     fyleBiter(md, &manBoof); // using adviths method to load manifest into buffer!
-    strtok(manBoof, "\n"); // ignore the first line of manifest which is the new line
     line = strtok(manBoof, "\n"); // getting the real line we need!
+    line = strtok(NULL, "\n"); // tokenizing again
     while(line != NULL) { // traversing the buffer
       memset(checksPath, '\0', PATH_MAX);
       sscanf(line, "%s %d %s %c", checksPath, &fpVer, hash, &tag); // scanning each line and storing that shit
-      filer[i] = checksPath; // loading the said filePath into the filer array
+      filer[i] = malloc((strlen(checksPath)+1)*sizeof(char));
+      strcpy(filer[i], checksPath); // loading the said filePath into the filer array
       numfiles++; // increasing numFiles by 1
       i++; // increasing i to traverse the array
       line = strtok(NULL, "\n"); // tokenizing again
     }
     close(md);
     numfiles = numfiles + 1; // increasing numfiles
-    i = i + 1; //increasing i to accomodate the addition of manifest
     filer[i] = manFilePath; // adding manifest in files to send to client
     send(csocket, &numfiles, sizeof(int), 0); // send client number of files
     i = 0; // resetting array index to 0
@@ -334,13 +334,17 @@ void * tstart (void * sock) {
       bfg = open(filer[i], O_RDONLY, S_IRUSR | S_IWUSR); // open the file
       nbytes = fyleBiter(bfg, &fileboof); // how many bytes in said file
       send(csocket, &nbytes, sizeof(int), 0); // sending number of bytes to client
-      len = 0;
-      while(len < nbytes) {
-        len += send(csocket, fileboof + len, nbytes - len, 0); // sending buffer to client
+      send(csocket, fileboof, nbytes, 0); // sending buffer to client
+      i++;
+      close(bfg);
+      free(fileboof);
       }
-        i++;
-        close(bfg);
-      }
+    i = 0;
+    while (i < numfiles - 1) {
+      free(filer[i]);
+      i++;
+    }
+    free(filer);
     pthread_mutex_unlock(&locker);
   }
   else if(crequest[3] == 'm') { // commit!!
@@ -389,16 +393,14 @@ void * tstart (void * sock) {
       send(csocket, &manSuc, sizeof(int), 0);
     }
     fyleBiter(fcd, &comBuf); // storing the commit into the buffer 
-    char * projDir;
-    projDir = strtok(commfp, "."); // getting the project directory!
     char histfp[PATH_MAX]; // file path of the projects history
     memset(histfp, '\0', PATH_MAX); // setting everything to null terminator
-    strcpy(histfp, projDir); // adding projdirectory part to history file path
-    strcat(histfp, ".History"); // adding history part to history file path
+    strcpy(histfp, projName); // adding projdirectory part to history file path
+    strcat(histfp, "/.History"); // adding history part to history file path
     char manfp[PATH_MAX]; // creating file path for manifest
     memset(manfp, '\0', PATH_MAX); // presetting everything in buffer to null terminator
-    strcpy(manfp, projDir); // setting project/ to file path
-    strcat(manfp, ".Manifest"); // adding the .Manifest file to it;
+    strcpy(manfp, projName); // setting project/ to file path
+    strcat(manfp, "/.Manifest"); // adding the .Manifest file to it;
     md = open(manfp, O_RDONLY, S_IRUSR | S_IWUSR); // open the manifest
     fyleBiter(md, &manBuf); // loading manifest into the buffer
     close(md);
@@ -413,15 +415,18 @@ void * tstart (void * sock) {
     strcat(bName, projName); // "backup_projName"
     strcat(bName, "_"); // "backup_projName_"
     strcat(bName, pvBUF); // ex: "backup_projName_2"
-    creator(bName); // creating the backup directory!
-    system("cp -Rf projName/*bName"); // storing the stuff from the old directory into the new directory! (duplication)
+    mkdir(bName, S_IRWXU);
+    char bBuff[projNL + strlen(bName) + 100];
+    memset(bBuff, '\0', projNL + strlen(bName) + 100);
+    strcat(bBuff, "cp -R ");
+    strcat(bBuff, projName);
+    strcat(bBuff, "/. ");
+    strcat(bBuff, bName);
+    system(bBuff); // storing the stuff from the old directory into the new directory! (duplication)
     strcat(pvBUF, "\n");
-    hd = open(histfp, O_RDWR, S_IRUSR | S_IWUSR); // opening the history with the 
+    hd = open(histfp, O_RDWR | O_APPEND, S_IRUSR | S_IWUSR); // opening the history with the 
     write(hd, pvBUF, strlen(pvBUF)); // writing the manifest version number to the history
     write(hd, comBuf, strlen(comBuf)); // writing the commit to the history!
-    while(projDir != NULL){
-      projDir = strtok(NULL, ".");
-    }
     char * line; // the particular line in the commit
     char * commCopy = malloc(strlen(comBuf)+1);
     memset(commCopy, '\0', strlen(comBuf)+1);
@@ -491,13 +496,13 @@ void * tstart (void * sock) {
     recv(csocket, manBoof, mbytes, MSG_WAITALL); // populate the manifest buffer
     write(nmd, manBoof, mbytes);
     int nfiles; // number of files in the directory
-    DIR * projtrav = opendir(projDir); // creating a dirent struct from the project directory
+    DIR * projtrav = opendir(projName); // creating a dirent struct from the project directory
     char ** commitdel;
     commitdel = (char **) malloc(100 * sizeof(char *));
-    nfiles = traverser(projtrav, 0, 100, projDir, commitdel); // getting number of files and storing stuff into commitdel
+    nfiles = traverser(projtrav, 0, 100, projName, commitdel); // getting number of files and storing stuff into commitdel
     int j = 0;
     while (j < nfiles) { // while loop removing all commits
-      if (strlen(commitdel[j]) == 48) {
+      if (strlen(commitdel[j]) == (48 + projNL)) {
         remove(commitdel[j]); // gettinf rid of the commit
       }
       j++;
