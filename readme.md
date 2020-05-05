@@ -3,7 +3,7 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
 
 ## Thread Synchronization (Our Approach)
 
-- Simply put, everytime a new client connected to the server, a thread was created to represent that client.  The thread would then go through the thread handler function to then begin the process where the client can send a request that needs to be accomplished.  Thread synchronization is an important aspect of this assignment as the repository needs to be locked in order to prevent conflicts that exist.  That being said, every command in our sever was locked by a mutex and was unlocked when completed so deadlocking would not occur to crash the code.  This implements thread safety and allows for synchronization to occur safely, otherwise the different threads would run havoc and essentially destroy the protection of our repository.
+Simply put, everytime a new client connected to the server, a thread was created to represent that client.  The thread would then go through the thread handler function to then begin the process where the client can send a request that needs to be accomplished.  Thread synchronization is an important aspect of this assignment as the repository needs to be locked in order to prevent conflicts that exist.  That being said, every command in our sever was locked by a mutex and was unlocked when completed so deadlocking would not occur to crash the code.  This implements thread safety and allows for synchronization to occur safely, otherwise the different threads would run havoc and essentially destroy the protection of our repository.
 
 ## Server Functions
 
@@ -53,7 +53,7 @@ This is the last assignment in CS 214 for the spring semester of 2020. Git is a 
   - Server needs to OVERWRITE the .Manifest the is currently there with the new Manifest file from the client which will have incremented version numbers and deleted/added entries
 
 #### Destroy
-- When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest:** then **NameOfProject**, then you need to follow the directions on the description.
+- When you need to destroy a project which is on the server, the client will ask the server to destroy in the following manner **Dest:** then **size of project name +1** and then **NameOfProject**, then you need to follow the directions on the description.
 
 #### History
 - When the client needs the history of a particular repository, it will follow the following protocol:

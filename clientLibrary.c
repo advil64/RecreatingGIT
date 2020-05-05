@@ -12,11 +12,17 @@ int history(char * projName){
   //connect to the server first
   connectToServer();
 
+  char checksPath[PATH_MAX];
+  memset(checksPath, '\0', PATH_MAX);
+  strcpy(checksPath, projName);
+  strcat(checksPath, "/.History");
+
   //get the len and send it over
-  int len = strlen(projName)+1;
-  send(sfd, "Hist:", 5, 0);
+  int len = strlen(checksPath)+1;
+  send(sfd, "File:", 5, 0);
   send(sfd, &len, sizeof(int), 0);
-  send(sfd, projName, len, 0);
+
+  send(sfd, checksPath, len, 0);
 
   //get the shit back from server
   int size = 0;
@@ -32,6 +38,7 @@ int history(char * projName){
   
   //conduct the frees and return success
   free(histBuff);
+  close(sfd);
   return 0;
 }
 
